@@ -1,0 +1,1376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#1e40af" />
+<title>Bethel Wednesday Night Attendance</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<style>
+  :root {
+    --primary: #1e40af;
+    --primary-dark: #1e3a8a;
+    --success: #16a34a;
+    --danger: #dc2626;
+    --warn: #d97706;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --text: #0f172a;
+    --muted: #64748b;
+    --border: #e2e8f0;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px; line-height: 1.4; overscroll-behavior-y: contain; }
+  header { background: var(--primary); color: #fff; padding: 12px 16px;
+    position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 12px;
+    padding-top: calc(12px + env(safe-area-inset-top));
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08); }
+  header h1 { font-size: 18px; margin: 0; flex: 1; font-weight: 600; }
+  header button { background: rgba(255,255,255,0.2); color: #fff; border: none;
+    padding: 8px 12px; border-radius: 6px; font-size: 14px; cursor: pointer; }
+  main { padding: 16px; padding-bottom: 100px; max-width: 900px; margin: 0 auto; }
+  nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; background: #fff;
+    border-top: 1px solid var(--border); display: flex; justify-content: space-around;
+    padding: 6px 0 calc(6px + env(safe-area-inset-bottom)); z-index: 10; }
+  nav.tabs button { background: none; border: none; color: var(--muted);
+    font-size: 12px; padding: 6px 12px; cursor: pointer; display: flex;
+    flex-direction: column; align-items: center; gap: 2px; min-width: 64px; }
+  nav.tabs button.active { color: var(--primary); font-weight: 600; }
+  nav.tabs button svg { width: 22px; height: 22px; }
+  .group-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .two-col .col { display: flex; flex-direction: column; gap: 10px; }
+  .group-card.has-logo { display: flex; align-items: center; gap: 10px; }
+  .group-card.has-logo .card-logo {
+    width: 56px; height: 56px; object-fit: contain; flex-shrink: 0; }
+  .group-card.has-logo .card-info { flex: 1; min-width: 0; }
+  .group-card.has-logo .card-info h3 { margin: 0 0 2px; font-size: 16px; }
+  .group-card.has-logo .card-info p { margin: 0; font-size: 13px; color: var(--muted); }
+  .group-card.has-logo .card-info p.grades { color: var(--text); font-weight: 500; }
+  .leaders-card { margin-top: 16px; background: var(--primary); color: #fff;
+    border-color: var(--primary); }
+  .leaders-card h3, .leaders-card p { color: #fff; }
+  .leaders-card .count { color: #fff; }
+  .group-card { background: var(--card); border-radius: 10px; padding: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06); cursor: pointer; border: 1px solid var(--border);
+    transition: transform 0.1s; }
+  .group-card:active { transform: scale(0.97); }
+  .group-card h3 { margin: 0 0 4px; font-size: 15px; }
+  .group-card p { margin: 0; color: var(--muted); font-size: 13px; }
+  .group-card .count { font-size: 24px; font-weight: 700; color: var(--primary); }
+  .student-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px; }
+  .student-tile { background: var(--card); border: 2px solid var(--border);
+    border-radius: 10px; padding: 8px; text-align: center; cursor: pointer;
+    transition: all 0.15s; position: relative; overflow: hidden; }
+  .student-tile.present { border-color: var(--success); background: #dcfce7; }
+  .student-tile:active { transform: scale(0.96); }
+  .student-tile img, .student-tile .photo-placeholder {
+    width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px;
+    background: var(--border); display: flex; align-items: center; justify-content: center;
+    font-size: 28px; font-weight: 700; color: var(--muted); }
+  .student-tile .name { margin-top: 6px; font-size: 13px; font-weight: 600;
+    line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .student-tile .check { position: absolute; top: 4px; right: 4px; width: 28px;
+    height: 28px; border-radius: 50%; background: var(--success); color: #fff;
+    display: none; align-items: center; justify-content: center; font-weight: 700; }
+  .student-tile.present .check { display: flex; }
+  button.primary, button.secondary, button.danger {
+    border: none; padding: 12px 16px; border-radius: 8px; font-size: 15px;
+    font-weight: 600; cursor: pointer; }
+  button.primary { background: var(--primary); color: #fff; }
+  button.secondary { background: #e2e8f0; color: var(--text); }
+  button.danger { background: var(--danger); color: #fff; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .row > * { flex-shrink: 0; }
+  .spacer { flex: 1; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; font-weight: 500; }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px;
+    font-size: 15px; font-family: inherit; background: #fff; }
+  .field textarea { resize: vertical; min-height: 60px; }
+  .student-row { display: flex; align-items: center; padding: 10px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    margin-bottom: 8px; cursor: pointer; gap: 12px; }
+  .student-row img, .student-row .ph {
+    width: 44px; height: 44px; border-radius: 50%; object-fit: cover;
+    background: var(--border); display: flex; align-items: center; justify-content: center;
+    font-weight: 700; color: var(--muted); flex-shrink: 0; }
+  .student-row .info { flex: 1; min-width: 0; }
+  .student-row .info .name { font-weight: 600; }
+  .student-row .info .meta { font-size: 13px; color: var(--muted); }
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    z-index: 100; display: none; align-items: center; justify-content: center; padding: 16px; }
+  .modal-backdrop.open { display: flex; }
+  .modal { background: #fff; border-radius: 12px; max-width: 500px; width: 100%;
+    max-height: 90vh; overflow-y: auto; padding: 20px; }
+  .modal h2 { margin-top: 0; }
+  .camera-preview { width: 100%; aspect-ratio: 1; background: #000;
+    border-radius: 10px; overflow: hidden; margin-bottom: 10px; position: relative; }
+  .camera-preview video, .camera-preview img { width: 100%; height: 100%; object-fit: cover; }
+  .stat-card { background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px; margin-bottom: 10px; }
+  .stat-card h4 { margin: 0 0 8px; font-size: 14px; color: var(--muted); font-weight: 500; }
+  .stat-card .big { font-size: 28px; font-weight: 700; color: var(--primary); }
+  .empty { text-align: center; color: var(--muted); padding: 40px 20px; }
+  .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    background: #0f172a; color: #fff; padding: 10px 16px; border-radius: 20px;
+    font-size: 14px; z-index: 200; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .date-header { font-size: 14px; color: var(--muted); margin-bottom: 12px; }
+  table.report { width: 100%; border-collapse: collapse; background: #fff;
+    border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+  table.report th, table.report td { padding: 8px 10px; text-align: left; font-size: 14px;
+    border-bottom: 1px solid var(--border); }
+  table.report th { background: #f1f5f9; font-weight: 600; }
+  table.report tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px;
+    background: #e0e7ff; color: var(--primary-dark); font-weight: 600; }
+  .badge.warn { background: #fef3c7; color: #92400e; }
+  .badge.ok { background: #dcfce7; color: #166534; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="headerTitle">Attendance</h1>
+  <button id="backBtn" style="display:none">← Back</button>
+  <span id="schoolYearLabel" style="font-size:13px;opacity:0.8"></span>
+</header>
+
+<main id="main"></main>
+
+<nav class="tabs">
+  <button data-tab="attendance" class="active">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+    Attendance
+  </button>
+  <button data-tab="students">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+    Students
+  </button>
+  <button data-tab="reports">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+    Reports
+  </button>
+  <button data-tab="settings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+    Settings
+  </button>
+</nav>
+
+<div id="modal" class="modal-backdrop"><div class="modal" id="modalContent"></div></div>
+<div id="toast" class="toast"></div>
+
+<script>
+// ==================== CONSTANTS ====================
+const GRADES = ['Pre-K','K','1','2','3','4','5','6','7','8','9','10','11','12'];
+const GROUP_DEFS = [
+  // Girls (Missionettes)
+  { id: 'k-g',    name: 'Daisies',     gender: 'F',   grades: ['K'],             side: 'left' },
+  { id: '12-g',   name: 'Prims',       gender: 'F',   grades: ['1','2'],         side: 'left' },
+  { id: '345-g',  name: 'Stars',       gender: 'F',   grades: ['3','4','5'],     side: 'left' },
+  { id: '678-g',  name: 'Friends',     gender: 'F',   grades: ['6','7','8'],     side: 'left' },
+  { id: '912-g',  name: 'Girls Only',  gender: 'F',   grades: ['9','10','11','12'], side: 'left' },
+  // Boys (Royal Rangers) — Rainbows (Pre-K, mixed gender) placed here per Kirk, but uses Missionettes logo
+  { id: 'prek',   name: 'Rainbows',    gender: 'any', grades: ['Pre-K'],         side: 'right', logo: 'missionettes.png' },
+  { id: 'k12-b',  name: 'Ranger Kids', gender: 'M',   grades: ['K','1','2'],     side: 'right' },
+  { id: '345-b',  name: 'Discovery',   gender: 'M',   grades: ['3','4','5'],     side: 'right' },
+  { id: '678-b',  name: 'Adventure',   gender: 'M',   grades: ['6','7','8'],     side: 'right' },
+  { id: '912-b',  name: 'Expedition',  gender: 'M',   grades: ['9','10','11','12'], side: 'right' },
+];
+function groupFor(grade, gender) {
+  return GROUP_DEFS.find(g =>
+    g.grades.includes(grade) && (g.gender === 'any' || g.gender === gender)
+  );
+}
+function gradeLabel(grades) {
+  if (!grades || grades.length === 0) return '';
+  if (grades.length === 1) return `Grade: ${grades[0]}`;
+  return `Grades: ${grades[0]}-${grades[grades.length-1]}`;
+}
+function nextGrade(grade) {
+  if (grade === 'Pre-K') return 'K';
+  const idx = GRADES.indexOf(grade);
+  if (idx < 0) return grade;
+  if (idx === GRADES.length - 1) return 'Graduated';
+  return GRADES[idx + 1];
+}
+
+// ==================== INDEXEDDB ====================
+const DB_NAME = 'church_attendance';
+const DB_VERSION = 2;
+let db;
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('students')) {
+        const s = d.createObjectStore('students', { keyPath: 'id', autoIncrement: true });
+        s.createIndex('group', 'group');
+        s.createIndex('active', 'active');
+      }
+      if (!d.objectStoreNames.contains('attendance')) {
+        const a = d.createObjectStore('attendance', { keyPath: 'id', autoIncrement: true });
+        a.createIndex('studentId', 'studentId');
+        a.createIndex('date', 'date');
+        a.createIndex('group', 'group');
+        a.createIndex('date_group', ['date', 'group']);
+      }
+      if (!d.objectStoreNames.contains('settings')) {
+        d.createObjectStore('settings', { keyPath: 'key' });
+      }
+      if (!d.objectStoreNames.contains('leaders')) {
+        const l = d.createObjectStore('leaders', { keyPath: 'id', autoIncrement: true });
+        l.createIndex('active', 'active');
+      }
+      if (!d.objectStoreNames.contains('leaderAttendance')) {
+        const la = d.createObjectStore('leaderAttendance', { keyPath: 'id', autoIncrement: true });
+        la.createIndex('leaderId', 'leaderId');
+        la.createIndex('date', 'date');
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function tx(stores, mode='readonly') {
+  return db.transaction(stores, mode);
+}
+function dbAll(store) {
+  return new Promise((res, rej) => {
+    const req = tx([store]).objectStore(store).getAll();
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+function dbGet(store, key) {
+  return new Promise((res, rej) => {
+    const req = tx([store]).objectStore(store).get(key);
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+function dbPut(store, obj) {
+  return new Promise((res, rej) => {
+    const req = tx([store], 'readwrite').objectStore(store).put(obj);
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+function dbDelete(store, key) {
+  return new Promise((res, rej) => {
+    const req = tx([store], 'readwrite').objectStore(store).delete(key);
+    req.onsuccess = () => res();
+    req.onerror = () => rej(req.error);
+  });
+}
+
+// ==================== SETTINGS ====================
+async function getSetting(key, defaultVal=null) {
+  const r = await dbGet('settings', key);
+  return r ? r.value : defaultVal;
+}
+async function setSetting(key, value) {
+  await dbPut('settings', { key, value });
+}
+function schoolYearFromDate(d=new Date()) {
+  // School year rolls over August 1. Aug 2026 → "2026-2027"
+  const y = d.getFullYear();
+  const m = d.getMonth(); // 0-11
+  if (m >= 7) return `${y}-${y+1}`;
+  return `${y-1}-${y}`;
+}
+
+// ==================== UI STATE ====================
+let currentTab = 'attendance';
+let currentView = null;
+let currentGroupId = null;
+let leadersView = null; // null | 'attendance' | 'manage'
+
+function showToast(msg, ms=2000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._to);
+  showToast._to = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+function openModal(html) {
+  document.getElementById('modalContent').innerHTML = html;
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+  stopCamera();
+}
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target.id === 'modal') closeModal();
+});
+
+function setTab(tab) {
+  currentTab = tab;
+  currentGroupId = null;
+  leadersView = null;
+  document.querySelectorAll('nav.tabs button').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === tab);
+  });
+  document.getElementById('backBtn').style.display = 'none';
+  render();
+}
+document.querySelectorAll('nav.tabs button').forEach(b => {
+  b.addEventListener('click', () => setTab(b.dataset.tab));
+});
+document.getElementById('backBtn').addEventListener('click', () => {
+  currentGroupId = null;
+  leadersView = null;
+  render();
+});
+
+// ==================== RENDER ====================
+async function render() {
+  const main = document.getElementById('main');
+  const title = document.getElementById('headerTitle');
+  const back = document.getElementById('backBtn');
+  const sy = await getSetting('schoolYear', schoolYearFromDate());
+  document.getElementById('schoolYearLabel').textContent = sy;
+
+  if (currentTab === 'attendance') {
+    if (leadersView === 'attendance') {
+      title.textContent = 'Leaders';
+      back.style.display = 'inline-block';
+      main.innerHTML = await renderLeaderAttendance();
+      attachLeaderAttendanceHandlers();
+    } else if (leadersView === 'manage') {
+      title.textContent = 'Manage Leaders';
+      back.style.display = 'inline-block';
+      main.innerHTML = await renderLeadersList();
+      attachLeadersListHandlers();
+    } else if (!currentGroupId) {
+      title.textContent = 'Bethel Wednesday Night Attendance';
+      main.innerHTML = await renderGroupPicker('attendance');
+    } else {
+      title.textContent = GROUP_DEFS.find(g => g.id === currentGroupId)?.name || 'Group';
+      back.style.display = 'inline-block';
+      main.innerHTML = await renderAttendanceForGroup(currentGroupId);
+      attachAttendanceHandlers();
+    }
+  } else if (currentTab === 'students') {
+    title.textContent = 'Students';
+    main.innerHTML = await renderStudentsList();
+    attachStudentsHandlers();
+  } else if (currentTab === 'reports') {
+    title.textContent = 'Reports';
+    main.innerHTML = await renderReports();
+    attachReportsHandlers();
+  } else if (currentTab === 'settings') {
+    title.textContent = 'Settings';
+    main.innerHTML = await renderSettings();
+    attachSettingsHandlers();
+  }
+}
+
+async function renderGroupPicker(mode) {
+  const students = (await dbAll('students')).filter(s => s.active !== false);
+  const leaders = (await dbAll('leaders')).filter(l => l.active !== false);
+  const today = todayIso();
+  let html = `<div class="date-header">Today: ${formatDate(today)} — tap a group to take attendance</div>`;
+  html += '<div class="two-col">';
+  for (const side of ['left', 'right']) {
+    const defaultLogo = side === 'left' ? 'missionettes.png' : 'royal-rangers.png';
+    html += `<div class="col">`;
+    for (const g of GROUP_DEFS.filter(x => x.side === side)) {
+      const count = students.filter(s => s.group === g.id).length;
+      const logo = g.logo || defaultLogo;
+      const alt = logo === 'missionettes.png' ? 'Missionettes' : 'Royal Rangers';
+      html += `<div class="group-card has-logo" data-group="${g.id}">
+        <img class="card-logo" src="${logo}" alt="${alt}" onerror="this.style.display='none'">
+        <div class="card-info">
+          <h3>${g.name}</h3>
+          <p class="grades">${gradeLabel(g.grades)}</p>
+          <p>${count === 1 ? '1 student' : count + ' students'}</p>
+        </div>
+      </div>`;
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+  html += `<div class="group-card leaders-card" id="leadersCard">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div class="count" style="margin:0">${leaders.length}</div>
+        <div>
+          <h3 style="margin:0">Leaders</h3>
+          <p style="margin:0">${leaders.length === 1 ? '1 leader' : leaders.length + ' leaders'} — tap to take attendance</p>
+        </div>
+      </div>
+    </div>`;
+  // attach on next tick
+  setTimeout(() => {
+    document.querySelectorAll('.group-card[data-group]').forEach(card => {
+      card.addEventListener('click', () => {
+        currentGroupId = card.dataset.group;
+        render();
+      });
+    });
+    const lc = document.getElementById('leadersCard');
+    if (lc) lc.addEventListener('click', () => {
+      leadersView = 'attendance';
+      render();
+    });
+  }, 0);
+  return html;
+}
+
+async function renderAttendanceForGroup(groupId) {
+  const group = GROUP_DEFS.find(g => g.id === groupId);
+  const today = todayIso();
+  const students = (await dbAll('students'))
+    .filter(s => s.active !== false && s.group === groupId)
+    .sort((a,b) => (a.firstName || '').localeCompare(b.firstName || ''));
+
+  const attendanceToday = (await dbAll('attendance'))
+    .filter(a => a.date === today && a.group === groupId);
+  const presentIds = new Set(attendanceToday.filter(a => a.present).map(a => a.studentId));
+
+  if (students.length === 0) {
+    return `<div class="empty">No students in this group yet.<br><br>
+      <button class="primary" onclick="setTab('students')">Add Students</button></div>`;
+  }
+
+  let html = `<div class="date-header">
+    <strong>${formatDate(today)}</strong> — tap student photos to mark present.
+    <span id="presentCount" style="float:right" class="badge ok">${presentIds.size} / ${students.length}</span>
+  </div>`;
+  html += '<div class="student-grid">';
+  for (const s of students) {
+    const isPresent = presentIds.has(s.id);
+    html += `<div class="student-tile ${isPresent ? 'present' : ''}" data-sid="${s.id}">
+      ${s.photoDataUrl
+        ? `<img src="${s.photoDataUrl}" alt="">`
+        : `<div class="photo-placeholder">${initials(s)}</div>`}
+      <div class="check">✓</div>
+      <div class="name">${escapeHtml(s.firstName)} ${escapeHtml((s.lastName||'').charAt(0))}</div>
+    </div>`;
+  }
+  html += '</div>';
+  return html;
+}
+
+function attachAttendanceHandlers() {
+  document.querySelectorAll('.student-tile').forEach(tile => {
+    tile.addEventListener('click', async () => {
+      const sid = parseInt(tile.dataset.sid);
+      const today = todayIso();
+      const sy = await getSetting('schoolYear', schoolYearFromDate());
+      // find existing record
+      const all = await dbAll('attendance');
+      const existing = all.find(a => a.studentId === sid && a.date === today && a.group === currentGroupId);
+      const nowPresent = !tile.classList.contains('present');
+      if (existing) {
+        existing.present = nowPresent;
+        await dbPut('attendance', existing);
+      } else {
+        await dbPut('attendance', {
+          studentId: sid, date: today, group: currentGroupId,
+          present: nowPresent, schoolYear: sy, timestamp: Date.now()
+        });
+      }
+      tile.classList.toggle('present', nowPresent);
+      // update counter
+      const total = document.querySelectorAll('.student-tile').length;
+      const present = document.querySelectorAll('.student-tile.present').length;
+      const cnt = document.getElementById('presentCount');
+      if (cnt) cnt.textContent = `${present} / ${total}`;
+    });
+  });
+}
+
+async function renderStudentsList() {
+  const students = (await dbAll('students'))
+    .sort((a,b) => (a.lastName||'').localeCompare(b.lastName||'') ||
+                   (a.firstName||'').localeCompare(b.firstName||''));
+  let html = `<div class="row" style="margin-bottom:12px">
+    <input type="text" id="searchBox" placeholder="Search..." style="flex:1;padding:10px;border:1px solid var(--border);border-radius:6px;font-size:15px" />
+    <button class="primary" id="addStudentBtn">+ Add</button>
+  </div>
+  <div class="row" style="margin-bottom:12px;font-size:13px">
+    <label><input type="checkbox" id="showArchived"> Show archived</label>
+  </div>`;
+  if (students.length === 0) {
+    html += `<div class="empty">No students yet. Click <b>+ Add</b> to add your first student.</div>`;
+  } else {
+    html += '<div id="studentList">';
+    for (const s of students) {
+      const group = GROUP_DEFS.find(g => g.id === s.group);
+      const archivedClass = s.active === false ? ' style="opacity:0.5"' : '';
+      html += `<div class="student-row" data-sid="${s.id}"${archivedClass}>
+        ${s.photoDataUrl
+          ? `<img src="${s.photoDataUrl}">`
+          : `<div class="ph">${initials(s)}</div>`}
+        <div class="info">
+          <div class="name">${escapeHtml(s.lastName || '')}, ${escapeHtml(s.firstName || '')}</div>
+          <div class="meta">Grade ${escapeHtml(s.grade || '?')} • ${group ? escapeHtml(group.name) : 'No group'}${s.active === false ? ' • ARCHIVED' : ''}</div>
+        </div>
+      </div>`;
+    }
+    html += '</div>';
+  }
+  return html;
+}
+
+function attachStudentsHandlers() {
+  const addBtn = document.getElementById('addStudentBtn');
+  if (addBtn) addBtn.addEventListener('click', () => openStudentForm(null));
+  document.querySelectorAll('.student-row').forEach(row => {
+    row.addEventListener('click', () => openStudentForm(parseInt(row.dataset.sid)));
+  });
+  const search = document.getElementById('searchBox');
+  const showArch = document.getElementById('showArchived');
+  const filter = () => {
+    const q = (search.value || '').toLowerCase();
+    const includeArch = showArch.checked;
+    document.querySelectorAll('.student-row').forEach(r => {
+      const txt = r.textContent.toLowerCase();
+      const isArch = txt.includes('archived');
+      const match = txt.includes(q) && (includeArch || !isArch);
+      r.style.display = match ? '' : 'none';
+    });
+  };
+  if (search) search.addEventListener('input', filter);
+  if (showArch) showArch.addEventListener('change', filter);
+  // hide archived by default
+  if (showArch && !showArch.checked) {
+    document.querySelectorAll('.student-row').forEach(r => {
+      if (r.textContent.toLowerCase().includes('archived')) r.style.display = 'none';
+    });
+  }
+}
+
+async function openStudentForm(studentId) {
+  const s = studentId ? await dbGet('students', studentId) : {
+    firstName: '', lastName: '', birthdate: '', grade: '', gender: 'M',
+    addressLine1: '', city: '', state: '', zip: '',
+    parentName: '', parentPhone: '', parentEmail: '',
+    photoDataUrl: '', notes: '', active: true
+  };
+  const title = studentId ? 'Edit Student' : 'Add Student';
+  const html = `
+    <h2>${title}</h2>
+    <div id="photoSection">
+      ${s.photoDataUrl
+        ? `<div class="camera-preview"><img id="photoImg" src="${s.photoDataUrl}"></div>`
+        : `<div class="camera-preview" style="background:#e2e8f0;color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:14px">No photo</div>`}
+      <div class="row" style="margin-bottom:12px">
+        <button type="button" class="secondary" id="takePhotoBtn" style="flex:1">📷 Take Photo</button>
+        ${s.photoDataUrl ? `<button type="button" class="secondary" id="removePhotoBtn">Remove</button>` : ''}
+      </div>
+    </div>
+    <div class="field"><label>First Name *</label>
+      <input id="f_first" value="${escapeAttr(s.firstName)}" required></div>
+    <div class="field"><label>Last Name *</label>
+      <input id="f_last" value="${escapeAttr(s.lastName)}" required></div>
+    <div class="row">
+      <div class="field" style="flex:1"><label>Grade *</label>
+        <select id="f_grade">
+          <option value="">--</option>
+          ${GRADES.map(g => `<option value="${g}" ${s.grade===g?'selected':''}>${g}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field" style="flex:1"><label>Gender *</label>
+        <select id="f_gender">
+          <option value="M" ${s.gender==='M'?'selected':''}>Male</option>
+          <option value="F" ${s.gender==='F'?'selected':''}>Female</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>Birthdate</label>
+      <input type="date" id="f_bday" value="${escapeAttr(s.birthdate)}"></div>
+    <div class="field"><label>Address</label>
+      <input id="f_addr" value="${escapeAttr(s.addressLine1)}" placeholder="Street"></div>
+    <div class="row">
+      <div class="field" style="flex:2"><label>City</label>
+        <input id="f_city" value="${escapeAttr(s.city)}"></div>
+      <div class="field" style="flex:1"><label>State</label>
+        <input id="f_state" value="${escapeAttr(s.state)}"></div>
+      <div class="field" style="flex:1"><label>Zip</label>
+        <input id="f_zip" value="${escapeAttr(s.zip)}"></div>
+    </div>
+    <div class="field"><label>Parent/Guardian Name</label>
+      <input id="f_parent" value="${escapeAttr(s.parentName)}"></div>
+    <div class="row">
+      <div class="field" style="flex:1"><label>Parent Phone</label>
+        <input type="tel" id="f_phone" value="${escapeAttr(s.parentPhone)}"></div>
+      <div class="field" style="flex:1"><label>Parent Email</label>
+        <input type="email" id="f_email" value="${escapeAttr(s.parentEmail)}"></div>
+    </div>
+    <div class="field"><label>Notes</label>
+      <textarea id="f_notes">${escapeHtml(s.notes || '')}</textarea></div>
+    ${studentId ? `<div class="field"><label><input type="checkbox" id="f_active" ${s.active !== false ? 'checked' : ''}> Active</label></div>` : ''}
+    <div class="row" style="margin-top:16px">
+      <button class="primary" id="saveBtn" style="flex:1">Save</button>
+      <button class="secondary" id="cancelBtn">Cancel</button>
+      ${studentId ? `<button class="danger" id="deleteBtn">Delete</button>` : ''}
+    </div>
+  `;
+  openModal(html);
+  let photoDataUrl = s.photoDataUrl || '';
+  const takeBtn = document.getElementById('takePhotoBtn');
+  const removeBtn = document.getElementById('removePhotoBtn');
+  takeBtn.addEventListener('click', async () => {
+    const newPhoto = await captureFromCamera();
+    if (newPhoto) {
+      photoDataUrl = newPhoto;
+      document.getElementById('photoSection').innerHTML = `
+        <div class="camera-preview"><img id="photoImg" src="${newPhoto}"></div>
+        <div class="row" style="margin-bottom:12px">
+          <button type="button" class="secondary" id="takePhotoBtn" style="flex:1">📷 Retake</button>
+          <button type="button" class="secondary" id="removePhotoBtn">Remove</button>
+        </div>`;
+      document.getElementById('takePhotoBtn').addEventListener('click', () => takeBtn.click());
+      document.getElementById('removePhotoBtn').addEventListener('click', () => {
+        photoDataUrl = '';
+        document.getElementById('photoSection').innerHTML = `
+          <div class="camera-preview" style="background:#e2e8f0;color:var(--muted);display:flex;align-items:center;justify-content:center">No photo</div>
+          <div class="row" style="margin-bottom:12px">
+            <button type="button" class="secondary" id="takePhotoBtn" style="flex:1">📷 Take Photo</button>
+          </div>`;
+        document.getElementById('takePhotoBtn').addEventListener('click', () => takeBtn.click());
+      });
+    }
+  });
+  if (removeBtn) removeBtn.addEventListener('click', () => {
+    photoDataUrl = '';
+    document.getElementById('photoSection').innerHTML = `
+      <div class="camera-preview" style="background:#e2e8f0;color:var(--muted);display:flex;align-items:center;justify-content:center">No photo</div>
+      <div class="row" style="margin-bottom:12px">
+        <button type="button" class="secondary" id="takePhotoBtn" style="flex:1">📷 Take Photo</button>
+      </div>`;
+    document.getElementById('takePhotoBtn').addEventListener('click', () => takeBtn.click());
+  });
+  document.getElementById('cancelBtn').addEventListener('click', closeModal);
+  document.getElementById('saveBtn').addEventListener('click', async () => {
+    const first = document.getElementById('f_first').value.trim();
+    const last = document.getElementById('f_last').value.trim();
+    const grade = document.getElementById('f_grade').value;
+    const gender = document.getElementById('f_gender').value;
+    if (!first || !last || !grade || !gender) {
+      showToast('First name, last name, grade, and gender are required');
+      return;
+    }
+    const g = groupFor(grade, gender);
+    const obj = {
+      ...(s.id ? { id: s.id } : {}),
+      firstName: first,
+      lastName: last,
+      grade, gender,
+      group: g ? g.id : null,
+      birthdate: document.getElementById('f_bday').value,
+      addressLine1: document.getElementById('f_addr').value,
+      city: document.getElementById('f_city').value,
+      state: document.getElementById('f_state').value,
+      zip: document.getElementById('f_zip').value,
+      parentName: document.getElementById('f_parent').value,
+      parentPhone: document.getElementById('f_phone').value,
+      parentEmail: document.getElementById('f_email').value,
+      notes: document.getElementById('f_notes').value,
+      photoDataUrl,
+      active: studentId ? document.getElementById('f_active').checked : true,
+      updatedAt: Date.now(),
+      createdAt: s.createdAt || Date.now()
+    };
+    await dbPut('students', obj);
+    closeModal();
+    showToast('Saved');
+    render();
+  });
+  if (studentId) {
+    document.getElementById('deleteBtn').addEventListener('click', async () => {
+      if (confirm('Delete this student and all their attendance records? This cannot be undone.')) {
+        await dbDelete('students', studentId);
+        // also delete attendance for this student
+        const all = await dbAll('attendance');
+        for (const a of all.filter(r => r.studentId === studentId)) {
+          await dbDelete('attendance', a.id);
+        }
+        closeModal();
+        showToast('Deleted');
+        render();
+      }
+    });
+  }
+}
+
+// ==================== LEADERS ====================
+async function renderLeaderAttendance() {
+  const today = todayIso();
+  const leaders = (await dbAll('leaders'))
+    .filter(l => l.active !== false)
+    .sort((a,b) => (a.firstName||'').localeCompare(b.firstName||''));
+  const todayRecs = (await dbAll('leaderAttendance')).filter(a => a.date === today);
+  const presentIds = new Set(todayRecs.filter(a => a.present).map(a => a.leaderId));
+
+  let html = `<div class="row" style="margin-bottom:12px">
+    <button class="primary" id="addLeaderBtn">+ Add Leader</button>
+    <button class="secondary" id="manageLeadersBtn">✎ Manage</button>
+    <div class="spacer"></div>
+    <span class="badge ok" id="leaderPresentCount">${presentIds.size} / ${leaders.length}</span>
+  </div>`;
+  html += `<div class="date-header"><strong>${formatDate(today)}</strong> — tap leader photos to mark present.</div>`;
+  if (leaders.length === 0) {
+    html += `<div class="empty">No leaders yet. Tap <b>+ Add Leader</b> to add one.</div>`;
+    return html;
+  }
+  html += '<div class="student-grid">';
+  for (const l of leaders) {
+    const isPresent = presentIds.has(l.id);
+    html += `<div class="student-tile ${isPresent ? 'present' : ''}" data-lid="${l.id}">
+      ${l.photoDataUrl
+        ? `<img src="${l.photoDataUrl}" alt="">`
+        : `<div class="photo-placeholder">${initials(l)}</div>`}
+      <div class="check">✓</div>
+      <div class="name">${escapeHtml(l.firstName)} ${escapeHtml((l.lastName||'').charAt(0))}</div>
+    </div>`;
+  }
+  html += '</div>';
+  return html;
+}
+
+function attachLeaderAttendanceHandlers() {
+  const addBtn = document.getElementById('addLeaderBtn');
+  if (addBtn) addBtn.addEventListener('click', () => openLeaderForm(null));
+  const manageBtn = document.getElementById('manageLeadersBtn');
+  if (manageBtn) manageBtn.addEventListener('click', () => {
+    leadersView = 'manage';
+    render();
+  });
+  document.querySelectorAll('.student-tile[data-lid]').forEach(tile => {
+    tile.addEventListener('click', async () => {
+      const lid = parseInt(tile.dataset.lid);
+      const today = todayIso();
+      const all = await dbAll('leaderAttendance');
+      const existing = all.find(a => a.leaderId === lid && a.date === today);
+      const nowPresent = !tile.classList.contains('present');
+      if (existing) {
+        existing.present = nowPresent;
+        await dbPut('leaderAttendance', existing);
+      } else {
+        await dbPut('leaderAttendance', {
+          leaderId: lid, date: today, present: nowPresent, timestamp: Date.now()
+        });
+      }
+      tile.classList.toggle('present', nowPresent);
+      const total = document.querySelectorAll('.student-tile[data-lid]').length;
+      const present = document.querySelectorAll('.student-tile.present[data-lid]').length;
+      const cnt = document.getElementById('leaderPresentCount');
+      if (cnt) cnt.textContent = `${present} / ${total}`;
+    });
+  });
+}
+
+async function renderLeadersList() {
+  const leaders = (await dbAll('leaders'))
+    .sort((a,b) => (a.lastName||'').localeCompare(b.lastName||'') ||
+                   (a.firstName||'').localeCompare(b.firstName||''));
+  let html = `<div class="row" style="margin-bottom:12px">
+    <input type="text" id="leaderSearchBox" placeholder="Search..." style="flex:1;padding:10px;border:1px solid var(--border);border-radius:6px;font-size:15px" />
+    <button class="primary" id="addLeaderBtn2">+ Add</button>
+  </div>
+  <div class="row" style="margin-bottom:12px;font-size:13px">
+    <label><input type="checkbox" id="showArchivedLeaders"> Show archived</label>
+  </div>`;
+  if (leaders.length === 0) {
+    html += `<div class="empty">No leaders yet.</div>`;
+  } else {
+    html += '<div id="leaderList">';
+    for (const l of leaders) {
+      const groupNames = (l.groupIds || [])
+        .map(id => GROUP_DEFS.find(g => g.id === id)?.name)
+        .filter(Boolean).join(', ') || 'No groups assigned';
+      const archStyle = l.active === false ? ' style="opacity:0.5"' : '';
+      html += `<div class="student-row" data-lid="${l.id}"${archStyle}>
+        ${l.photoDataUrl
+          ? `<img src="${l.photoDataUrl}">`
+          : `<div class="ph">${initials(l)}</div>`}
+        <div class="info">
+          <div class="name">${escapeHtml(l.lastName || '')}, ${escapeHtml(l.firstName || '')}</div>
+          <div class="meta">${escapeHtml(groupNames)}${l.active === false ? ' • ARCHIVED' : ''}</div>
+        </div>
+      </div>`;
+    }
+    html += '</div>';
+  }
+  return html;
+}
+
+function attachLeadersListHandlers() {
+  const addBtn = document.getElementById('addLeaderBtn2');
+  if (addBtn) addBtn.addEventListener('click', () => openLeaderForm(null));
+  document.querySelectorAll('.student-row[data-lid]').forEach(row => {
+    row.addEventListener('click', () => openLeaderForm(parseInt(row.dataset.lid)));
+  });
+  const search = document.getElementById('leaderSearchBox');
+  const showArch = document.getElementById('showArchivedLeaders');
+  const filter = () => {
+    const q = (search.value || '').toLowerCase();
+    const includeArch = showArch.checked;
+    document.querySelectorAll('.student-row[data-lid]').forEach(r => {
+      const txt = r.textContent.toLowerCase();
+      const isArch = txt.includes('archived');
+      const match = txt.includes(q) && (includeArch || !isArch);
+      r.style.display = match ? '' : 'none';
+    });
+  };
+  if (search) search.addEventListener('input', filter);
+  if (showArch) showArch.addEventListener('change', filter);
+  if (showArch && !showArch.checked) {
+    document.querySelectorAll('.student-row[data-lid]').forEach(r => {
+      if (r.textContent.toLowerCase().includes('archived')) r.style.display = 'none';
+    });
+  }
+}
+
+async function openLeaderForm(leaderId) {
+  const l = leaderId ? await dbGet('leaders', leaderId) : {
+    firstName: '', lastName: '', phone: '', email: '',
+    photoDataUrl: '', notes: '', groupIds: [], active: true
+  };
+  const title = leaderId ? 'Edit Leader' : 'Add Leader';
+  const groupCheckboxes = GROUP_DEFS.map(g => `
+    <label style="display:flex;align-items:center;gap:8px;padding:6px 0">
+      <input type="checkbox" value="${g.id}" ${(l.groupIds||[]).includes(g.id) ? 'checked' : ''} class="leaderGroupCb">
+      ${g.name}
+    </label>`).join('');
+  const html = `
+    <h2>${title}</h2>
+    <div id="photoSection">
+      ${l.photoDataUrl
+        ? `<div class="camera-preview"><img src="${l.photoDataUrl}"></div>`
+        : `<div class="camera-preview" style="background:#e2e8f0;color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:14px">No photo</div>`}
+      <div class="row" style="margin-bottom:12px">
+        <button type="button" class="secondary" id="takePhotoBtn" style="flex:1">📷 Take Photo</button>
+        ${l.photoDataUrl ? `<button type="button" class="secondary" id="removePhotoBtn">Remove</button>` : ''}
+      </div>
+    </div>
+    <div class="field"><label>First Name *</label>
+      <input id="lf_first" value="${escapeAttr(l.firstName)}" required></div>
+    <div class="field"><label>Last Name *</label>
+      <input id="lf_last" value="${escapeAttr(l.lastName)}" required></div>
+    <div class="row">
+      <div class="field" style="flex:1"><label>Phone</label>
+        <input type="tel" id="lf_phone" value="${escapeAttr(l.phone)}"></div>
+      <div class="field" style="flex:1"><label>Email</label>
+        <input type="email" id="lf_email" value="${escapeAttr(l.email)}"></div>
+    </div>
+    <div class="field"><label>Groups led</label>
+      <div style="border:1px solid var(--border);border-radius:6px;padding:8px;max-height:180px;overflow-y:auto">
+        ${groupCheckboxes}
+      </div>
+    </div>
+    <div class="field"><label>Notes</label>
+      <textarea id="lf_notes">${escapeHtml(l.notes || '')}</textarea></div>
+    ${leaderId ? `<div class="field"><label><input type="checkbox" id="lf_active" ${l.active !== false ? 'checked' : ''}> Active</label></div>` : ''}
+    <div class="row" style="margin-top:16px">
+      <button class="primary" id="saveBtn" style="flex:1">Save</button>
+      <button class="secondary" id="cancelBtn">Cancel</button>
+      ${leaderId ? `<button class="danger" id="deleteBtn">Delete</button>` : ''}
+    </div>`;
+  openModal(html);
+  let photoDataUrl = l.photoDataUrl || '';
+  const takeBtn = document.getElementById('takePhotoBtn');
+  const removeBtn = document.getElementById('removePhotoBtn');
+  takeBtn.addEventListener('click', async () => {
+    const newPhoto = await captureFromCamera();
+    if (newPhoto) {
+      photoDataUrl = newPhoto;
+      document.getElementById('photoSection').innerHTML = `
+        <div class="camera-preview"><img src="${newPhoto}"></div>
+        <div class="row" style="margin-bottom:12px">
+          <button type="button" class="secondary" id="takePhotoBtn" style="flex:1">📷 Retake</button>
+          <button type="button" class="secondary" id="removePhotoBtn">Remove</button>
+        </div>`;
+      document.getElementById('takePhotoBtn').addEventListener('click', () => takeBtn.click());
+      document.getElementById('removePhotoBtn').addEventListener('click', () => {
+        photoDataUrl = '';
+        document.getElementById('photoSection').innerHTML = `
+          <div class="camera-preview" style="background:#e2e8f0;color:var(--muted);display:flex;align-items:center;justify-content:center">No photo</div>
+          <div class="row" style="margin-bottom:12px">
+            <button type="button" class="secondary" id="takePhotoBtn" style="flex:1">📷 Take Photo</button>
+          </div>`;
+        document.getElementById('takePhotoBtn').addEventListener('click', () => takeBtn.click());
+      });
+    }
+  });
+  if (removeBtn) removeBtn.addEventListener('click', () => {
+    photoDataUrl = '';
+    document.getElementById('photoSection').innerHTML = `
+      <div class="camera-preview" style="background:#e2e8f0;color:var(--muted);display:flex;align-items:center;justify-content:center">No photo</div>
+      <div class="row" style="margin-bottom:12px">
+        <button type="button" class="secondary" id="takePhotoBtn" style="flex:1">📷 Take Photo</button>
+      </div>`;
+    document.getElementById('takePhotoBtn').addEventListener('click', () => takeBtn.click());
+  });
+  document.getElementById('cancelBtn').addEventListener('click', closeModal);
+  document.getElementById('saveBtn').addEventListener('click', async () => {
+    const first = document.getElementById('lf_first').value.trim();
+    const last = document.getElementById('lf_last').value.trim();
+    if (!first || !last) {
+      showToast('First and last name required');
+      return;
+    }
+    const groupIds = [...document.querySelectorAll('.leaderGroupCb:checked')].map(cb => cb.value);
+    const obj = {
+      ...(l.id ? { id: l.id } : {}),
+      firstName: first,
+      lastName: last,
+      phone: document.getElementById('lf_phone').value,
+      email: document.getElementById('lf_email').value,
+      notes: document.getElementById('lf_notes').value,
+      groupIds,
+      photoDataUrl,
+      active: leaderId ? document.getElementById('lf_active').checked : true,
+      updatedAt: Date.now(),
+      createdAt: l.createdAt || Date.now()
+    };
+    await dbPut('leaders', obj);
+    closeModal();
+    showToast('Saved');
+    render();
+  });
+  if (leaderId) {
+    document.getElementById('deleteBtn').addEventListener('click', async () => {
+      if (confirm('Delete this leader and all their attendance records? This cannot be undone.')) {
+        await dbDelete('leaders', leaderId);
+        const all = await dbAll('leaderAttendance');
+        for (const a of all.filter(r => r.leaderId === leaderId)) {
+          await dbDelete('leaderAttendance', a.id);
+        }
+        closeModal();
+        showToast('Deleted');
+        render();
+      }
+    });
+  }
+}
+
+// ==================== CAMERA ====================
+let cameraStream = null;
+function stopCamera() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+}
+function captureFromCamera() {
+  return new Promise(async (resolve) => {
+    // Use a fresh modal overlay for camera
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'position:fixed;inset:0;background:#000;z-index:300;display:flex;flex-direction:column';
+    wrap.innerHTML = `
+      <video id="camVideo" autoplay playsinline style="flex:1;width:100%;object-fit:cover;background:#000"></video>
+      <canvas id="camCanvas" style="display:none"></canvas>
+      <div style="display:flex;gap:8px;padding:16px;background:#000">
+        <button id="camCancel" class="secondary" style="flex:1">Cancel</button>
+        <button id="camFlip" class="secondary">🔄 Flip</button>
+        <button id="camSnap" class="primary" style="flex:2">📷 Capture</button>
+      </div>`;
+    document.body.appendChild(wrap);
+    let facing = 'user';
+    async function start() {
+      try {
+        stopCamera();
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: facing, width: { ideal: 640 }, height: { ideal: 640 } },
+          audio: false
+        });
+        const v = document.getElementById('camVideo');
+        v.srcObject = cameraStream;
+      } catch (err) {
+        alert('Camera access failed: ' + err.message + '\n\nNote: camera requires HTTPS or localhost.');
+        cleanup(null);
+      }
+    }
+    function cleanup(val) {
+      stopCamera();
+      wrap.remove();
+      resolve(val);
+    }
+    document.getElementById('camCancel').addEventListener('click', () => cleanup(null));
+    document.getElementById('camFlip').addEventListener('click', () => {
+      facing = facing === 'user' ? 'environment' : 'user';
+      start();
+    });
+    document.getElementById('camSnap').addEventListener('click', () => {
+      const v = document.getElementById('camVideo');
+      const c = document.getElementById('camCanvas');
+      const size = 400;
+      c.width = size; c.height = size;
+      const ctx = c.getContext('2d');
+      // center-crop square
+      const vw = v.videoWidth, vh = v.videoHeight;
+      const s = Math.min(vw, vh);
+      const sx = (vw - s) / 2, sy = (vh - s) / 2;
+      ctx.drawImage(v, sx, sy, s, s, 0, 0, size, size);
+      const dataUrl = c.toDataURL('image/jpeg', 0.75);
+      cleanup(dataUrl);
+    });
+    start();
+  });
+}
+
+// ==================== REPORTS ====================
+async function renderReports() {
+  const sy = await getSetting('schoolYear', schoolYearFromDate());
+  const students = await dbAll('students');
+  const attendance = await dbAll('attendance');
+  const activeStudents = students.filter(s => s.active !== false);
+
+  const syRecords = attendance.filter(a => a.schoolYear === sy && a.present);
+  const dates = [...new Set(syRecords.map(a => a.date))].sort().reverse();
+  const totalSessions = dates.length;
+
+  let html = `<div class="stat-card">
+    <h4>School Year ${sy}</h4>
+    <div class="big">${totalSessions}</div>
+    <div style="color:var(--muted)">attendance sessions recorded</div>
+  </div>`;
+
+  html += `<div class="row" style="margin:16px 0">
+    <button class="secondary" id="reportByStudent" style="flex:1">By Student</button>
+    <button class="secondary" id="reportByDate" style="flex:1">By Date</button>
+    <button class="secondary" id="reportByGroup" style="flex:1">By Group</button>
+  </div>`;
+
+  html += `<div id="reportOut"></div>`;
+
+  html += `<div style="margin-top:24px">
+    <button class="primary" id="exportCsvBtn" style="width:100%">⬇ Export School Year to CSV</button>
+  </div>`;
+
+  return html;
+}
+
+function attachReportsHandlers() {
+  document.getElementById('reportByStudent').addEventListener('click', () => runReport('student'));
+  document.getElementById('reportByDate').addEventListener('click', () => runReport('date'));
+  document.getElementById('reportByGroup').addEventListener('click', () => runReport('group'));
+  document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
+  runReport('student');
+}
+
+async function runReport(kind) {
+  const sy = await getSetting('schoolYear', schoolYearFromDate());
+  const students = await dbAll('students');
+  const attendance = (await dbAll('attendance')).filter(a => a.schoolYear === sy);
+  const out = document.getElementById('reportOut');
+  if (!out) return;
+
+  if (kind === 'student') {
+    const syPresent = attendance.filter(a => a.present);
+    const datesBySchoolYear = [...new Set(syPresent.map(a => a.date))];
+    const total = datesBySchoolYear.length;
+    const rows = students.filter(s => s.active !== false).map(s => {
+      const present = syPresent.filter(a => a.studentId === s.id).length;
+      return { s, present };
+    }).sort((a,b) => (a.s.lastName||'').localeCompare(b.s.lastName||''));
+    let html = `<table class="report"><thead><tr><th>Student</th><th>Grade</th><th>Present</th><th>Rate</th></tr></thead><tbody>`;
+    for (const r of rows) {
+      const pct = total ? Math.round(100 * r.present / total) : 0;
+      const badge = pct >= 75 ? 'ok' : pct >= 50 ? 'warn' : '';
+      html += `<tr><td>${escapeHtml(r.s.lastName)}, ${escapeHtml(r.s.firstName)}</td>
+        <td>${escapeHtml(r.s.grade||'')}</td>
+        <td>${r.present} / ${total}</td>
+        <td><span class="badge ${badge}">${pct}%</span></td></tr>`;
+    }
+    html += '</tbody></table>';
+    if (rows.length === 0) html = '<div class="empty">No students yet.</div>';
+    out.innerHTML = html;
+  } else if (kind === 'date') {
+    const byDate = {};
+    for (const a of attendance) {
+      if (!a.present) continue;
+      if (!byDate[a.date]) byDate[a.date] = { count: 0, groups: new Set() };
+      byDate[a.date].count++;
+      byDate[a.date].groups.add(a.group);
+    }
+    const dates = Object.keys(byDate).sort().reverse();
+    let html = `<table class="report"><thead><tr><th>Date</th><th>Present</th><th>Groups</th></tr></thead><tbody>`;
+    for (const d of dates) {
+      html += `<tr><td>${formatDate(d)}</td><td>${byDate[d].count}</td><td>${byDate[d].groups.size}</td></tr>`;
+    }
+    html += '</tbody></table>';
+    if (dates.length === 0) html = '<div class="empty">No attendance records yet.</div>';
+    out.innerHTML = html;
+  } else if (kind === 'group') {
+    let html = `<table class="report"><thead><tr><th>Group</th><th>Students</th><th>Avg. Present</th></tr></thead><tbody>`;
+    const datesAll = [...new Set(attendance.filter(a=>a.present).map(a => a.date))];
+    for (const g of GROUP_DEFS) {
+      const members = students.filter(s => s.active !== false && s.group === g.id);
+      if (members.length === 0) continue;
+      const gDates = [...new Set(attendance.filter(a => a.present && a.group === g.id).map(a => a.date))];
+      const avg = gDates.length
+        ? (attendance.filter(a => a.present && a.group === g.id).length / gDates.length).toFixed(1)
+        : '—';
+      html += `<tr><td>${g.name}</td><td>${members.length}</td><td>${avg}</td></tr>`;
+    }
+    html += '</tbody></table>';
+    out.innerHTML = html;
+  }
+}
+
+async function exportCsv() {
+  const sy = await getSetting('schoolYear', schoolYearFromDate());
+  const students = await dbAll('students');
+  const attendance = (await dbAll('attendance')).filter(a => a.schoolYear === sy && a.present);
+  const dates = [...new Set(attendance.map(a => a.date))].sort();
+  const active = students.filter(s => s.active !== false)
+    .sort((a,b) => (a.lastName||'').localeCompare(b.lastName||''));
+  const rows = [['Last Name','First Name','Grade','Group', ...dates.map(formatDate), 'Total', 'Rate']];
+  for (const s of active) {
+    const row = [s.lastName, s.firstName, s.grade, GROUP_DEFS.find(g => g.id === s.group)?.name || ''];
+    let total = 0;
+    for (const d of dates) {
+      const present = attendance.some(a => a.studentId === s.id && a.date === d);
+      row.push(present ? 'X' : '');
+      if (present) total++;
+    }
+    row.push(total);
+    row.push(dates.length ? Math.round(100*total/dates.length) + '%' : '');
+    rows.push(row);
+  }
+  const csv = rows.map(r => r.map(c => {
+    const str = String(c ?? '');
+    return /[,"\n]/.test(str) ? `"${str.replace(/"/g,'""')}"` : str;
+  }).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `attendance_${sy}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV downloaded');
+}
+
+// ==================== SETTINGS ====================
+async function renderSettings() {
+  const sy = await getSetting('schoolYear', schoolYearFromDate());
+  const students = await dbAll('students');
+  const attendance = await dbAll('attendance');
+  const leaders = await dbAll('leaders');
+  const leaderAttendance = await dbAll('leaderAttendance');
+  return `
+    <div class="stat-card">
+      <h4>Current School Year</h4>
+      <div class="big">${sy}</div>
+    </div>
+    <div class="stat-card">
+      <h4>Totals</h4>
+      <div>Students: <b>${students.filter(s=>s.active!==false).length}</b> active, ${students.filter(s=>s.active===false).length} archived</div>
+      <div>Leaders: <b>${leaders.filter(l=>l.active!==false).length}</b> active, ${leaders.filter(l=>l.active===false).length} archived</div>
+      <div>Student attendance records: <b>${attendance.length}</b></div>
+      <div>Leader attendance records: <b>${leaderAttendance.length}</b></div>
+    </div>
+
+    <h3 style="margin-top:24px">School Year</h3>
+    <div class="field">
+      <label>Set current school year</label>
+      <input id="syInput" value="${sy}" placeholder="2026-2027">
+      <button class="secondary" id="setSyBtn" style="margin-top:6px">Update</button>
+    </div>
+
+    <h3 style="margin-top:16px">Promote Grades</h3>
+    <p style="color:var(--muted);font-size:14px">
+      Advances every active student by one grade. Students in grade 12 will be archived as Graduated.
+      Run this once at the start of a new school year.
+    </p>
+    <button class="primary" id="promoteBtn">Promote All Students</button>
+
+    <h3 style="margin-top:24px">Backup / Restore</h3>
+    <div class="row">
+      <button class="secondary" id="backupBtn" style="flex:1">⬇ Download Backup</button>
+      <button class="secondary" id="restoreBtn" style="flex:1">⬆ Restore</button>
+    </div>
+    <input type="file" id="restoreFile" accept="application/json" style="display:none">
+
+    <h3 style="margin-top:24px;color:var(--danger)">Danger Zone</h3>
+    <button class="danger" id="wipeAttBtn">Clear All Attendance (keep students)</button>
+    <div style="height:8px"></div>
+    <button class="danger" id="wipeAllBtn">Erase Everything</button>
+
+    <div style="text-align:center;margin-top:32px;color:var(--muted);font-size:12px">
+      Bethel Wednesday Night Attendance • v0.5<br>Data stored locally on this device.
+    </div>
+  `;
+}
+
+function attachSettingsHandlers() {
+  document.getElementById('setSyBtn').addEventListener('click', async () => {
+    const v = document.getElementById('syInput').value.trim();
+    if (!v) return;
+    await setSetting('schoolYear', v);
+    showToast('School year updated');
+    render();
+  });
+  document.getElementById('promoteBtn').addEventListener('click', promoteStudents);
+  document.getElementById('backupBtn').addEventListener('click', backupAll);
+  document.getElementById('restoreBtn').addEventListener('click', () => {
+    document.getElementById('restoreFile').click();
+  });
+  document.getElementById('restoreFile').addEventListener('change', restoreFromFile);
+  document.getElementById('wipeAttBtn').addEventListener('click', async () => {
+    if (!confirm('Delete ALL attendance records? Students will be kept. This cannot be undone.')) return;
+    const all = await dbAll('attendance');
+    for (const a of all) await dbDelete('attendance', a.id);
+    showToast('Attendance cleared');
+    render();
+  });
+  document.getElementById('wipeAllBtn').addEventListener('click', async () => {
+    if (!confirm('Erase ALL data (students AND attendance)? This cannot be undone.')) return;
+    if (!confirm('Really erase everything? Last chance.')) return;
+    const studs = await dbAll('students');
+    for (const s of studs) await dbDelete('students', s.id);
+    const att = await dbAll('attendance');
+    for (const a of att) await dbDelete('attendance', a.id);
+    showToast('All data erased');
+    render();
+  });
+}
+
+async function promoteStudents() {
+  const students = await dbAll('students');
+  const active = students.filter(s => s.active !== false);
+  // Preview
+  const changes = active.map(s => {
+    const next = nextGrade(s.grade);
+    const willArchive = next === 'Graduated';
+    const newGroup = willArchive ? null : groupFor(next, s.gender);
+    return { s, next, willArchive, newGroupName: newGroup?.name || (willArchive ? 'ARCHIVED (Graduated)' : '—') };
+  });
+  const grads = changes.filter(c => c.willArchive).length;
+  const msg = `This will:\n\n• Promote ${changes.length - grads} students by one grade\n• Archive ${grads} graduating senior(s)\n• Advance the school year\n\nContinue?`;
+  if (!confirm(msg)) return;
+  for (const c of changes) {
+    if (c.willArchive) {
+      c.s.active = false;
+      c.s.grade = '12'; // keep last grade for records
+    } else {
+      c.s.grade = c.next;
+      c.s.group = groupFor(c.next, c.s.gender)?.id || null;
+    }
+    c.s.updatedAt = Date.now();
+    await dbPut('students', c.s);
+  }
+  // advance school year
+  const sy = await getSetting('schoolYear', schoolYearFromDate());
+  const parts = sy.split('-');
+  if (parts.length === 2) {
+    const newSy = `${parseInt(parts[0])+1}-${parseInt(parts[1])+1}`;
+    await setSetting('schoolYear', newSy);
+  }
+  showToast('Promotions complete');
+  render();
+}
+
+async function backupAll() {
+  const students = await dbAll('students');
+  const attendance = await dbAll('attendance');
+  const settings = await dbAll('settings');
+  const leaders = await dbAll('leaders');
+  const leaderAttendance = await dbAll('leaderAttendance');
+  const data = { version: 2, exportedAt: new Date().toISOString(),
+    students, attendance, settings, leaders, leaderAttendance };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `attendance_backup_${todayIso()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Backup downloaded');
+}
+
+async function restoreFromFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (!confirm('Restoring will ADD to existing data (merge by ID). Continue?')) return;
+  const text = await file.text();
+  try {
+    const data = JSON.parse(text);
+    if (data.students) for (const s of data.students) await dbPut('students', s);
+    if (data.attendance) for (const a of data.attendance) await dbPut('attendance', a);
+    if (data.settings) for (const x of data.settings) await dbPut('settings', x);
+    if (data.leaders) for (const l of data.leaders) await dbPut('leaders', l);
+    if (data.leaderAttendance) for (const a of data.leaderAttendance) await dbPut('leaderAttendance', a);
+    showToast('Restore complete');
+    render();
+  } catch (err) {
+    alert('Restore failed: ' + err.message);
+  }
+  e.target.value = '';
+}
+
+// ==================== UTILITIES ====================
+function todayIso() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function formatDate(iso) {
+  if (!iso) return '';
+  const [y,m,d] = iso.split('-');
+  return `${m}/${d}/${y}`;
+}
+function initials(s) {
+  return ((s.firstName||'?').charAt(0) + (s.lastName||'').charAt(0)).toUpperCase();
+}
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+function escapeAttr(str) { return escapeHtml(str); }
+
+// ==================== MIGRATIONS ====================
+async function migrateGroups() {
+  // Recompute each student's group from grade+gender using current GROUP_DEFS.
+  // Handles renamed groups (e.g. prek-b/prek-g → prek, K/1 Girls split into Daisies + Prims).
+  const students = await dbAll('students');
+  let changed = 0;
+  for (const s of students) {
+    const g = groupFor(s.grade, s.gender);
+    const newId = g ? g.id : null;
+    if (s.group !== newId) {
+      s.group = newId;
+      s.updatedAt = Date.now();
+      await dbPut('students', s);
+      changed++;
+    }
+  }
+  if (changed > 0) console.log(`Migrated ${changed} student(s) to new group IDs`);
+}
+
+// ==================== STARTUP ====================
+(async () => {
+  db = await openDB();
+  // ensure school year is set
+  const sy = await getSetting('schoolYear');
+  if (!sy) await setSetting('schoolYear', schoolYearFromDate());
+  await migrateGroups();
+  // register service worker for PWA
+  if ('serviceWorker' in navigator) {
+    try { await navigator.serviceWorker.register('sw.js'); } catch (e) { /* ok offline-file mode */ }
+  }
+  render();
+})();
+</script>
+</body>
+</html>
