@@ -1,5 +1,5 @@
 // Service worker: cache app shell for offline use.
-const CACHE = 'attendance-v3';
+const CACHE = 'attendance-v4';
 const ASSETS = [
   './',
   './index.html',

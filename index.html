@@ -167,8 +167,44 @@
 
 <div id="modal" class="modal-backdrop"><div class="modal" id="modalContent"></div></div>
 <div id="toast" class="toast"></div>
+<div id="authOverlay" style="position:fixed;inset:0;background:#1e40af;color:#fff;z-index:500;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px">
+  <div style="max-width:380px;width:100%;text-align:center">
+    <h1 style="font-size:24px;margin:0 0 8px">Bethel Wednesday Night Attendance</h1>
+    <p id="authMsg" style="opacity:0.85;margin-bottom:24px">Enter passphrase to continue</p>
+    <input type="password" id="authInput" placeholder="Passphrase"
+      style="width:100%;padding:14px;border:none;border-radius:8px;font-size:16px;margin-bottom:12px"
+      autocomplete="current-password">
+    <button id="authSubmit" style="width:100%;padding:14px;border:none;border-radius:8px;background:#fff;color:#1e40af;font-size:16px;font-weight:700;cursor:pointer">Sign In</button>
+    <p id="authError" style="color:#fecaca;margin-top:12px;min-height:20px;font-size:14px"></p>
+  </div>
+</div>
 
-<script>
+<script type="module">
+// ==================== FIREBASE ====================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence }
+  from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+  collection, doc, getDocs, getDoc, setDoc, deleteDoc, onSnapshot, writeBatch }
+  from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDsfD6va0nEDbBScXiRDhOBFstFCOaSTgg",
+  authDomain: "bethel-attendance-fc7af.firebaseapp.com",
+  projectId: "bethel-attendance-fc7af",
+  storageBucket: "bethel-attendance-fc7af.firebasestorage.app",
+  messagingSenderId: "41950417446",
+  appId: "1:41950417446:web:f027b7694358cef8818ce7"
+};
+const AUTH_EMAIL = 'leader@bethel.local';
+
+const fbApp = initializeApp(firebaseConfig);
+const fbAuth = getAuth(fbApp);
+const fbDb = initializeFirestore(fbApp, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+});
+await setPersistence(fbAuth, browserLocalPersistence);
+
 // ==================== CONSTANTS ====================
 const GRADES = ['Pre-K','K','1','2','3','4','5','6','7','8','9','10','11','12'];
 const GROUP_DEFS = [
@@ -203,73 +239,65 @@ function nextGrade(grade) {
   return GRADES[idx + 1];
 }
 
-// ==================== INDEXEDDB ====================
+// ==================== FIRESTORE DB WRAPPER ====================
+// Collection names match previous IndexedDB store names.
+// Each doc stored with its own ID; auto-generated if none provided.
+async function dbAll(store) {
+  const snap = await getDocs(collection(fbDb, store));
+  return snap.docs.map(d => {
+    const data = d.data();
+    if (store === 'settings') return { key: d.id, ...data };
+    return { id: d.id, ...data };
+  });
+}
+async function dbGet(store, key) {
+  const snap = await getDoc(doc(fbDb, store, String(key)));
+  if (!snap.exists()) return undefined;
+  const data = snap.data();
+  if (store === 'settings') return { key: snap.id, ...data };
+  return { id: snap.id, ...data };
+}
+async function dbPut(store, obj) {
+  let id = store === 'settings' ? obj.key : obj.id;
+  if (!id) {
+    // Auto-generate a new ID
+    id = doc(collection(fbDb, store)).id;
+  }
+  const data = { ...obj };
+  delete data.id;
+  delete data.key;
+  await setDoc(doc(fbDb, store, String(id)), data);
+  if (store !== 'settings') obj.id = id;
+  return id;
+}
+async function dbDelete(store, key) {
+  await deleteDoc(doc(fbDb, store, String(key)));
+}
+
+// ==================== LEGACY INDEXEDDB (for one-time migration) ====================
 const DB_NAME = 'church_attendance';
 const DB_VERSION = 2;
-let db;
-function openDB() {
+let idbHandle = null;
+function idbOpen() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = e => {
       const d = e.target.result;
-      if (!d.objectStoreNames.contains('students')) {
-        const s = d.createObjectStore('students', { keyPath: 'id', autoIncrement: true });
-        s.createIndex('group', 'group');
-        s.createIndex('active', 'active');
-      }
-      if (!d.objectStoreNames.contains('attendance')) {
-        const a = d.createObjectStore('attendance', { keyPath: 'id', autoIncrement: true });
-        a.createIndex('studentId', 'studentId');
-        a.createIndex('date', 'date');
-        a.createIndex('group', 'group');
-        a.createIndex('date_group', ['date', 'group']);
-      }
-      if (!d.objectStoreNames.contains('settings')) {
-        d.createObjectStore('settings', { keyPath: 'key' });
-      }
-      if (!d.objectStoreNames.contains('leaders')) {
-        const l = d.createObjectStore('leaders', { keyPath: 'id', autoIncrement: true });
-        l.createIndex('active', 'active');
-      }
-      if (!d.objectStoreNames.contains('leaderAttendance')) {
-        const la = d.createObjectStore('leaderAttendance', { keyPath: 'id', autoIncrement: true });
-        la.createIndex('leaderId', 'leaderId');
-        la.createIndex('date', 'date');
-      }
+      if (!d.objectStoreNames.contains('students')) d.createObjectStore('students', { keyPath: 'id', autoIncrement: true });
+      if (!d.objectStoreNames.contains('attendance')) d.createObjectStore('attendance', { keyPath: 'id', autoIncrement: true });
+      if (!d.objectStoreNames.contains('settings')) d.createObjectStore('settings', { keyPath: 'key' });
+      if (!d.objectStoreNames.contains('leaders')) d.createObjectStore('leaders', { keyPath: 'id', autoIncrement: true });
+      if (!d.objectStoreNames.contains('leaderAttendance')) d.createObjectStore('leaderAttendance', { keyPath: 'id', autoIncrement: true });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
 }
-function tx(stores, mode='readonly') {
-  return db.transaction(stores, mode);
-}
-function dbAll(store) {
+function idbAll(store) {
   return new Promise((res, rej) => {
-    const req = tx([store]).objectStore(store).getAll();
-    req.onsuccess = () => res(req.result);
-    req.onerror = () => rej(req.error);
-  });
-}
-function dbGet(store, key) {
-  return new Promise((res, rej) => {
-    const req = tx([store]).objectStore(store).get(key);
-    req.onsuccess = () => res(req.result);
-    req.onerror = () => rej(req.error);
-  });
-}
-function dbPut(store, obj) {
-  return new Promise((res, rej) => {
-    const req = tx([store], 'readwrite').objectStore(store).put(obj);
-    req.onsuccess = () => res(req.result);
-    req.onerror = () => rej(req.error);
-  });
-}
-function dbDelete(store, key) {
-  return new Promise((res, rej) => {
-    const req = tx([store], 'readwrite').objectStore(store).delete(key);
-    req.onsuccess = () => res();
-    req.onerror = () => rej(req.error);
+    const r = idbHandle.transaction([store]).objectStore(store).getAll();
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
   });
 }
 
@@ -466,7 +494,7 @@ async function renderAttendanceForGroup(groupId) {
 function attachAttendanceHandlers() {
   document.querySelectorAll('.student-tile').forEach(tile => {
     tile.addEventListener('click', async () => {
-      const sid = parseInt(tile.dataset.sid);
+      const sid = tile.dataset.sid;
       const today = todayIso();
       const sy = await getSetting('schoolYear', schoolYearFromDate());
       // find existing record
@@ -529,7 +557,7 @@ function attachStudentsHandlers() {
   const addBtn = document.getElementById('addStudentBtn');
   if (addBtn) addBtn.addEventListener('click', () => openStudentForm(null));
   document.querySelectorAll('.student-row').forEach(row => {
-    row.addEventListener('click', () => openStudentForm(parseInt(row.dataset.sid)));
+    row.addEventListener('click', () => openStudentForm(row.dataset.sid));
   });
   const search = document.getElementById('searchBox');
   const showArch = document.getElementById('showArchived');
@@ -752,7 +780,7 @@ function attachLeaderAttendanceHandlers() {
   });
   document.querySelectorAll('.student-tile[data-lid]').forEach(tile => {
     tile.addEventListener('click', async () => {
-      const lid = parseInt(tile.dataset.lid);
+      const lid = tile.dataset.lid;
       const today = todayIso();
       const all = await dbAll('leaderAttendance');
       const existing = all.find(a => a.leaderId === lid && a.date === today);
@@ -813,7 +841,7 @@ function attachLeadersListHandlers() {
   const addBtn = document.getElementById('addLeaderBtn2');
   if (addBtn) addBtn.addEventListener('click', () => openLeaderForm(null));
   document.querySelectorAll('.student-row[data-lid]').forEach(row => {
-    row.addEventListener('click', () => openLeaderForm(parseInt(row.dataset.lid)));
+    row.addEventListener('click', () => openLeaderForm(row.dataset.lid));
   });
   const search = document.getElementById('leaderSearchBox');
   const showArch = document.getElementById('showArchivedLeaders');
@@ -1204,8 +1232,16 @@ async function renderSettings() {
     <div style="height:8px"></div>
     <button class="danger" id="wipeAllBtn">Erase Everything</button>
 
+    <h3 style="margin-top:24px">Account</h3>
+    <p style="color:var(--muted);font-size:14px;margin-top:0">
+      Signed in as: <b>${fbAuth.currentUser?.email || 'unknown'}</b><br>
+      Data synced to: <b>${firebaseConfig.projectId}</b>
+    </p>
+    <button class="secondary" id="signOutBtn">Sign Out</button>
+
     <div style="text-align:center;margin-top:32px;color:var(--muted);font-size:12px">
-      Bethel Wednesday Night Attendance • v0.5<br>Data stored locally on this device.
+      Bethel Wednesday Night Attendance • v0.6 (Cloud-synced)<br>
+      Data stored in shared cloud database.
     </div>
   `;
 }
@@ -1230,6 +1266,12 @@ function attachSettingsHandlers() {
     for (const a of all) await dbDelete('attendance', a.id);
     showToast('Attendance cleared');
     render();
+  });
+  const signOutBtn = document.getElementById('signOutBtn');
+  if (signOutBtn) signOutBtn.addEventListener('click', async () => {
+    if (!confirm('Sign out? You will need to re-enter the passphrase to use the app.')) return;
+    await signOut(fbAuth);
+    // Auth state change listener will show the overlay
   });
   document.getElementById('wipeAllBtn').addEventListener('click', async () => {
     if (!confirm('Erase ALL data (students AND attendance)? This cannot be undone.')) return;
@@ -1358,19 +1400,115 @@ async function migrateGroups() {
   if (changed > 0) console.log(`Migrated ${changed} student(s) to new group IDs`);
 }
 
-// ==================== STARTUP ====================
-(async () => {
-  db = await openDB();
-  // ensure school year is set
-  const sy = await getSetting('schoolYear');
-  if (!sy) await setSetting('schoolYear', schoolYearFromDate());
-  await migrateGroups();
-  // register service worker for PWA
-  if ('serviceWorker' in navigator) {
-    try { await navigator.serviceWorker.register('sw.js'); } catch (e) { /* ok offline-file mode */ }
+// ==================== AUTH GATE ====================
+function showAuthOverlay(msg = 'Enter passphrase to continue', err = '') {
+  document.getElementById('authMsg').textContent = msg;
+  document.getElementById('authError').textContent = err;
+  document.getElementById('authOverlay').style.display = 'flex';
+  document.getElementById('authInput').value = '';
+  setTimeout(() => document.getElementById('authInput').focus(), 100);
+}
+function hideAuthOverlay() {
+  document.getElementById('authOverlay').style.display = 'none';
+}
+async function attemptSignIn(passphrase) {
+  try {
+    await signInWithEmailAndPassword(fbAuth, AUTH_EMAIL, passphrase);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password'
+      ? 'Incorrect passphrase'
+      : (e.message || 'Sign in failed') };
   }
-  render();
-})();
+}
+document.getElementById('authSubmit').addEventListener('click', async () => {
+  const pw = document.getElementById('authInput').value;
+  if (!pw) return;
+  document.getElementById('authError').textContent = 'Signing in...';
+  const r = await attemptSignIn(pw);
+  if (r.ok) {
+    hideAuthOverlay();
+  } else {
+    document.getElementById('authError').textContent = r.error;
+  }
+});
+document.getElementById('authInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('authSubmit').click();
+});
+
+// ==================== MIGRATION: LOCAL INDEXEDDB → FIRESTORE ====================
+async function maybeMigrateLocal() {
+  try {
+    idbHandle = await idbOpen();
+    const [students, leaders, attendance, leaderAttendance, settings] = await Promise.all([
+      idbAll('students'), idbAll('leaders'), idbAll('attendance'),
+      idbAll('leaderAttendance'), idbAll('settings')
+    ]);
+    const hasLocalData = students.length > 0 || leaders.length > 0;
+    if (!hasLocalData) return;
+    // Check if Firestore already has data — if so, skip migration to avoid duplicates
+    const cloudStudents = await dbAll('students');
+    const cloudLeaders = await dbAll('leaders');
+    if (cloudStudents.length > 0 || cloudLeaders.length > 0) {
+      console.log('Firestore already has data, skipping local migration');
+      return;
+    }
+    if (!confirm(`Found ${students.length} student(s) and ${leaders.length} leader(s) saved locally on this device. Upload to the shared cloud database?`)) return;
+    const batch = writeBatch(fbDb);
+    for (const s of students) {
+      const id = String(s.id);
+      const data = { ...s }; delete data.id;
+      batch.set(doc(fbDb, 'students', id), data);
+    }
+    for (const l of leaders) {
+      const id = String(l.id);
+      const data = { ...l }; delete data.id;
+      batch.set(doc(fbDb, 'leaders', id), data);
+    }
+    for (const a of attendance) {
+      const id = String(a.id);
+      const data = { ...a, studentId: String(a.studentId) }; delete data.id;
+      batch.set(doc(fbDb, 'attendance', id), data);
+    }
+    for (const a of leaderAttendance) {
+      const id = String(a.id);
+      const data = { ...a, leaderId: String(a.leaderId) }; delete data.id;
+      batch.set(doc(fbDb, 'leaderAttendance', id), data);
+    }
+    for (const s of settings) {
+      batch.set(doc(fbDb, 'settings', s.key), { value: s.value });
+    }
+    await batch.commit();
+    showToast('Local data uploaded to cloud');
+  } catch (e) {
+    console.warn('Migration skipped or failed:', e);
+  }
+}
+
+// ==================== STARTUP ====================
+// Wait for Firebase auth state. If not signed in, show passphrase overlay.
+onAuthStateChanged(fbAuth, async user => {
+  if (!user) {
+    showAuthOverlay();
+    return;
+  }
+  hideAuthOverlay();
+  try {
+    await maybeMigrateLocal();
+    const sy = await getSetting('schoolYear');
+    if (!sy) await setSetting('schoolYear', schoolYearFromDate());
+    await migrateGroups();
+    render();
+  } catch (e) {
+    alert('Startup error: ' + (e.message || e));
+    console.error(e);
+  }
+});
+
+// Register service worker for PWA (independent of auth)
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 </script>
 </body>
 </html>
