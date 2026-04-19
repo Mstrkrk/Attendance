@@ -527,6 +527,7 @@ async function renderStudentsList() {
   let html = `<div class="row" style="margin-bottom:12px">
     <input type="text" id="searchBox" placeholder="Search..." style="flex:1;padding:10px;border:1px solid var(--border);border-radius:6px;font-size:15px" />
     <button class="primary" id="addStudentBtn">+ Add</button>
+    <button class="secondary" id="bulkAddBtn">Bulk</button>
   </div>
   <div class="row" style="margin-bottom:12px;font-size:13px">
     <label><input type="checkbox" id="showArchived"> Show archived</label>
@@ -556,6 +557,8 @@ async function renderStudentsList() {
 function attachStudentsHandlers() {
   const addBtn = document.getElementById('addStudentBtn');
   if (addBtn) addBtn.addEventListener('click', () => openStudentForm(null));
+  const bulkBtn = document.getElementById('bulkAddBtn');
+  if (bulkBtn) bulkBtn.addEventListener('click', openBulkAdd);
   document.querySelectorAll('.student-row').forEach(row => {
     row.addEventListener('click', () => openStudentForm(row.dataset.sid));
   });
@@ -733,6 +736,92 @@ async function openStudentForm(studentId) {
       }
     });
   }
+}
+
+// ==================== BULK ADD STUDENTS ====================
+function openBulkAdd() {
+  const html = `
+    <h2>Bulk Add Students</h2>
+    <p style="color:var(--muted);font-size:14px;margin-top:0">
+      Add several students at once. Pick a grade and gender, then paste names below — one per line.<br>
+      Formats accepted per line: <code>First Last</code> or <code>Last, First</code>
+    </p>
+    <div class="row">
+      <div class="field" style="flex:1"><label>Grade *</label>
+        <select id="bf_grade">
+          <option value="">--</option>
+          ${GRADES.map(g => `<option value="${g}">${g}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field" style="flex:1"><label>Gender *</label>
+        <select id="bf_gender">
+          <option value="M">Male</option>
+          <option value="F">Female</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>Names (one per line)</label>
+      <textarea id="bf_names" rows="12" style="font-family:ui-monospace,monospace;font-size:14px"
+        placeholder="Jane Smith&#10;Smith, John&#10;Mary Johnson"></textarea>
+    </div>
+    <div id="bf_preview" style="color:var(--muted);font-size:13px;margin-bottom:12px"></div>
+    <div class="row" style="margin-top:8px">
+      <button class="primary" id="bf_save" style="flex:1">Import</button>
+      <button class="secondary" id="bf_cancel">Cancel</button>
+    </div>`;
+  openModal(html);
+
+  const textarea = document.getElementById('bf_names');
+  const preview = document.getElementById('bf_preview');
+  const update = () => {
+    const lines = (textarea.value || '').split('\n').map(x => x.trim()).filter(Boolean);
+    preview.textContent = lines.length ? `Will add ${lines.length} student${lines.length===1?'':'s'}` : '';
+  };
+  textarea.addEventListener('input', update);
+
+  document.getElementById('bf_cancel').addEventListener('click', closeModal);
+  document.getElementById('bf_save').addEventListener('click', async () => {
+    const grade = document.getElementById('bf_grade').value;
+    const gender = document.getElementById('bf_gender').value;
+    if (!grade) { showToast('Pick a grade'); return; }
+    const lines = (textarea.value || '').split('\n').map(x => x.trim()).filter(Boolean);
+    if (lines.length === 0) { showToast('Paste at least one name'); return; }
+    const group = groupFor(grade, gender);
+    if (!confirm(`Add ${lines.length} student(s) to grade ${grade} (${group ? group.name : 'no group'})?`)) return;
+
+    let ok = 0, skipped = 0;
+    for (const line of lines) {
+      const parsed = parseBulkName(line);
+      if (!parsed.first || !parsed.last) { skipped++; continue; }
+      await dbPut('students', {
+        firstName: parsed.first,
+        lastName: parsed.last,
+        grade, gender,
+        group: group ? group.id : null,
+        birthdate: '', addressLine1: '', city: '', state: '', zip: '',
+        parentName: '', parentPhone: '', parentEmail: '',
+        notes: '', photoDataUrl: '',
+        active: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      });
+      ok++;
+    }
+    closeModal();
+    showToast(`Imported ${ok}${skipped ? ` (${skipped} skipped)` : ''}`);
+    render();
+  });
+}
+
+function parseBulkName(line) {
+  // "Last, First" → {first, last}; "First Last [Middle ...]" → first = first token, last = rest
+  if (line.includes(',')) {
+    const [last, first] = line.split(',').map(s => s.trim());
+    return { first: first || '', last: last || '' };
+  }
+  const parts = line.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return { first: parts[0], last: '' };
+  return { first: parts[0], last: parts.slice(1).join(' ') };
 }
 
 // ==================== LEADERS ====================
@@ -1240,7 +1329,7 @@ async function renderSettings() {
     <button class="secondary" id="signOutBtn">Sign Out</button>
 
     <div style="text-align:center;margin-top:32px;color:var(--muted);font-size:12px">
-      Bethel Wednesday Night Attendance • v0.6 (Cloud-synced)<br>
+      Bethel Wednesday Night Attendance • v0.7 (Cloud-synced)<br>
       Data stored in shared cloud database.
     </div>
   `;
