@@ -322,6 +322,7 @@ let currentTab = 'attendance';
 let currentView = null;
 let currentGroupId = null;
 let leadersView = null; // null | 'attendance' | 'manage'
+let currentDate = mostRecentWednesdayIso(); // defaults to today if Wed, else most recent Wed
 
 function showToast(msg, ms=2000) {
   const t = document.getElementById('toast');
@@ -408,8 +409,15 @@ async function render() {
 async function renderGroupPicker(mode) {
   const students = (await dbAll('students')).filter(s => s.active !== false);
   const leaders = (await dbAll('leaders')).filter(l => l.active !== false);
-  const today = todayIso();
-  let html = `<div class="date-header">Today: ${formatDate(today)} — tap a group to take attendance</div>`;
+  const dateStr = currentDate;
+  const isPast = dateStr !== todayIso();
+  let html = `<div class="date-header" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <span>Service date:</span>
+    <input type="date" id="serviceDate" value="${dateStr}" style="padding:6px;border:1px solid var(--border);border-radius:6px;font-size:14px">
+    <button class="secondary" id="resetDateBtn" style="padding:6px 10px;font-size:13px">Today/Last Wed</button>
+    ${isPast ? `<span class="badge" style="background:#fef3c7;color:#92400e">Editing ${formatDate(dateStr)}</span>` : ''}
+    <div style="flex-basis:100%;color:var(--muted);font-size:13px">Tap a group to take attendance</div>
+  </div>`;
   html += '<div class="two-col">';
   for (const side of ['left', 'right']) {
     const defaultLogo = side === 'left' ? 'missionettes.png' : 'royal-rangers.png';
@@ -452,19 +460,29 @@ async function renderGroupPicker(mode) {
       leadersView = 'attendance';
       render();
     });
+    const dateInput = document.getElementById('serviceDate');
+    if (dateInput) dateInput.addEventListener('change', e => {
+      if (e.target.value) { currentDate = e.target.value; render(); }
+    });
+    const resetBtn = document.getElementById('resetDateBtn');
+    if (resetBtn) resetBtn.addEventListener('click', () => {
+      currentDate = mostRecentWednesdayIso();
+      render();
+    });
   }, 0);
   return html;
 }
 
 async function renderAttendanceForGroup(groupId) {
   const group = GROUP_DEFS.find(g => g.id === groupId);
-  const today = todayIso();
+  const dateStr = currentDate;
+  const isPast = dateStr !== todayIso();
   const students = (await dbAll('students'))
     .filter(s => s.active !== false && s.group === groupId)
     .sort((a,b) => (a.firstName || '').localeCompare(b.firstName || ''));
 
   const attendanceToday = (await dbAll('attendance'))
-    .filter(a => a.date === today && a.group === groupId);
+    .filter(a => a.date === dateStr && a.group === groupId);
   const presentIds = new Set(attendanceToday.filter(a => a.present).map(a => a.studentId));
 
   if (students.length === 0) {
@@ -472,9 +490,11 @@ async function renderAttendanceForGroup(groupId) {
       <button class="primary" onclick="setTab('students')">Add Students</button></div>`;
   }
 
-  let html = `<div class="date-header">
-    <strong>${formatDate(today)}</strong> — tap student photos to mark present.
-    <span id="presentCount" style="float:right" class="badge ok">${presentIds.size} / ${students.length}</span>
+  let html = `<div class="date-header" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <input type="date" id="serviceDate" value="${dateStr}" style="padding:6px;border:1px solid var(--border);border-radius:6px;font-size:14px">
+    ${isPast ? `<span class="badge" style="background:#fef3c7;color:#92400e">Editing ${formatDate(dateStr)}</span>` : `<strong>${formatDate(dateStr)}</strong>`}
+    <span id="presentCount" class="badge ok" style="margin-left:auto">${presentIds.size} / ${students.length}</span>
+    <div style="flex-basis:100%;color:var(--muted);font-size:13px">Tap student photos to mark present.</div>
   </div>`;
   html += '<div class="student-grid">';
   for (const s of students) {
@@ -492,21 +512,25 @@ async function renderAttendanceForGroup(groupId) {
 }
 
 function attachAttendanceHandlers() {
+  const dateInput = document.getElementById('serviceDate');
+  if (dateInput) dateInput.addEventListener('change', e => {
+    if (e.target.value) { currentDate = e.target.value; render(); }
+  });
   document.querySelectorAll('.student-tile').forEach(tile => {
     tile.addEventListener('click', async () => {
       const sid = tile.dataset.sid;
-      const today = todayIso();
-      const sy = await getSetting('schoolYear', schoolYearFromDate());
+      const dateStr = currentDate;
+      const sy = await getSetting('schoolYear', schoolYearFromDate(new Date(dateStr + 'T00:00:00')));
       // find existing record
       const all = await dbAll('attendance');
-      const existing = all.find(a => a.studentId === sid && a.date === today && a.group === currentGroupId);
+      const existing = all.find(a => a.studentId === sid && a.date === dateStr && a.group === currentGroupId);
       const nowPresent = !tile.classList.contains('present');
       if (existing) {
         existing.present = nowPresent;
         await dbPut('attendance', existing);
       } else {
         await dbPut('attendance', {
-          studentId: sid, date: today, group: currentGroupId,
+          studentId: sid, date: dateStr, group: currentGroupId,
           present: nowPresent, schoolYear: sy, timestamp: Date.now()
         });
       }
@@ -824,13 +848,75 @@ function parseBulkName(line) {
   return { first: parts[0], last: parts.slice(1).join(' ') };
 }
 
+// ==================== BULK ADD LEADERS ====================
+function openBulkAddLeaders() {
+  const groupCheckboxes = GROUP_DEFS.map(g => `
+    <label style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px;font-size:13px">
+      <input type="checkbox" value="${g.id}" class="blGroupCb"> ${g.name}
+    </label>`).join('');
+  const html = `
+    <h2>Bulk Add Leaders</h2>
+    <p style="color:var(--muted);font-size:14px;margin-top:0">
+      Paste names — one per line. Formats: <code>First Last</code> or <code>Last, First</code>
+    </p>
+    <div class="field"><label>Groups led (applied to all)</label>
+      <div style="border:1px solid var(--border);border-radius:6px;padding:8px;max-height:150px;overflow-y:auto">
+        ${groupCheckboxes}
+      </div>
+    </div>
+    <div class="field"><label>Names (one per line)</label>
+      <textarea id="bl_names" rows="12" style="font-family:ui-monospace,monospace;font-size:14px"
+        placeholder="Jane Smith&#10;Smith, John"></textarea>
+    </div>
+    <div id="bl_preview" style="color:var(--muted);font-size:13px;margin-bottom:12px"></div>
+    <div class="row" style="margin-top:8px">
+      <button class="primary" id="bl_save" style="flex:1">Import</button>
+      <button class="secondary" id="bl_cancel">Cancel</button>
+    </div>`;
+  openModal(html);
+  const textarea = document.getElementById('bl_names');
+  const preview = document.getElementById('bl_preview');
+  const update = () => {
+    const lines = (textarea.value || '').split('\n').map(x => x.trim()).filter(Boolean);
+    preview.textContent = lines.length ? `Will add ${lines.length} leader${lines.length===1?'':'s'}` : '';
+  };
+  textarea.addEventListener('input', update);
+  document.getElementById('bl_cancel').addEventListener('click', closeModal);
+  document.getElementById('bl_save').addEventListener('click', async () => {
+    const lines = (textarea.value || '').split('\n').map(x => x.trim()).filter(Boolean);
+    if (lines.length === 0) { showToast('Paste at least one name'); return; }
+    const groupIds = [...document.querySelectorAll('.blGroupCb:checked')].map(cb => cb.value);
+    if (!confirm(`Add ${lines.length} leader(s)?`)) return;
+    let ok = 0, skipped = 0;
+    for (const line of lines) {
+      const parsed = parseBulkName(line);
+      if (!parsed.first || !parsed.last) { skipped++; continue; }
+      await dbPut('leaders', {
+        firstName: parsed.first,
+        lastName: parsed.last,
+        phone: '', email: '',
+        photoDataUrl: '', notes: '',
+        groupIds,
+        active: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      });
+      ok++;
+    }
+    closeModal();
+    showToast(`Imported ${ok}${skipped ? ` (${skipped} skipped)` : ''}`);
+    render();
+  });
+}
+
 // ==================== LEADERS ====================
 async function renderLeaderAttendance() {
-  const today = todayIso();
+  const dateStr = currentDate;
+  const isPast = dateStr !== todayIso();
   const leaders = (await dbAll('leaders'))
     .filter(l => l.active !== false)
     .sort((a,b) => (a.firstName||'').localeCompare(b.firstName||''));
-  const todayRecs = (await dbAll('leaderAttendance')).filter(a => a.date === today);
+  const todayRecs = (await dbAll('leaderAttendance')).filter(a => a.date === dateStr);
   const presentIds = new Set(todayRecs.filter(a => a.present).map(a => a.leaderId));
 
   let html = `<div class="row" style="margin-bottom:12px">
@@ -839,7 +925,11 @@ async function renderLeaderAttendance() {
     <div class="spacer"></div>
     <span class="badge ok" id="leaderPresentCount">${presentIds.size} / ${leaders.length}</span>
   </div>`;
-  html += `<div class="date-header"><strong>${formatDate(today)}</strong> — tap leader photos to mark present.</div>`;
+  html += `<div class="date-header" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <input type="date" id="serviceDate" value="${dateStr}" style="padding:6px;border:1px solid var(--border);border-radius:6px;font-size:14px">
+    ${isPast ? `<span class="badge" style="background:#fef3c7;color:#92400e">Editing ${formatDate(dateStr)}</span>` : `<strong>${formatDate(dateStr)}</strong>`}
+    <div style="flex-basis:100%;color:var(--muted);font-size:13px">Tap leader photos to mark present.</div>
+  </div>`;
   if (leaders.length === 0) {
     html += `<div class="empty">No leaders yet. Tap <b>+ Add Leader</b> to add one.</div>`;
     return html;
@@ -867,19 +957,23 @@ function attachLeaderAttendanceHandlers() {
     leadersView = 'manage';
     render();
   });
+  const dateInput = document.getElementById('serviceDate');
+  if (dateInput) dateInput.addEventListener('change', e => {
+    if (e.target.value) { currentDate = e.target.value; render(); }
+  });
   document.querySelectorAll('.student-tile[data-lid]').forEach(tile => {
     tile.addEventListener('click', async () => {
       const lid = tile.dataset.lid;
-      const today = todayIso();
+      const dateStr = currentDate;
       const all = await dbAll('leaderAttendance');
-      const existing = all.find(a => a.leaderId === lid && a.date === today);
+      const existing = all.find(a => a.leaderId === lid && a.date === dateStr);
       const nowPresent = !tile.classList.contains('present');
       if (existing) {
         existing.present = nowPresent;
         await dbPut('leaderAttendance', existing);
       } else {
         await dbPut('leaderAttendance', {
-          leaderId: lid, date: today, present: nowPresent, timestamp: Date.now()
+          leaderId: lid, date: dateStr, present: nowPresent, timestamp: Date.now()
         });
       }
       tile.classList.toggle('present', nowPresent);
@@ -898,6 +992,7 @@ async function renderLeadersList() {
   let html = `<div class="row" style="margin-bottom:12px">
     <input type="text" id="leaderSearchBox" placeholder="Search..." style="flex:1;padding:10px;border:1px solid var(--border);border-radius:6px;font-size:15px" />
     <button class="primary" id="addLeaderBtn2">+ Add</button>
+    <button class="secondary" id="bulkAddLeaderBtn">Bulk</button>
   </div>
   <div class="row" style="margin-bottom:12px;font-size:13px">
     <label><input type="checkbox" id="showArchivedLeaders"> Show archived</label>
@@ -929,6 +1024,8 @@ async function renderLeadersList() {
 function attachLeadersListHandlers() {
   const addBtn = document.getElementById('addLeaderBtn2');
   if (addBtn) addBtn.addEventListener('click', () => openLeaderForm(null));
+  const bulkBtn = document.getElementById('bulkAddLeaderBtn');
+  if (bulkBtn) bulkBtn.addEventListener('click', openBulkAddLeaders);
   document.querySelectorAll('.student-row[data-lid]').forEach(row => {
     row.addEventListener('click', () => openLeaderForm(row.dataset.lid));
   });
@@ -1329,7 +1426,7 @@ async function renderSettings() {
     <button class="secondary" id="signOutBtn">Sign Out</button>
 
     <div style="text-align:center;margin-top:32px;color:var(--muted);font-size:12px">
-      Bethel Wednesday Night Attendance • v0.7 (Cloud-synced)<br>
+      Bethel Wednesday Night Attendance • v0.8 (Dates + Bulk Leaders)<br>
       Data stored in shared cloud database.
     </div>
   `;
@@ -1450,6 +1547,17 @@ async function restoreFromFile(e) {
 // ==================== UTILITIES ====================
 function todayIso() {
   const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function mostRecentWednesdayIso() {
+  // Returns today's date if today is Wednesday, otherwise the most recent past Wednesday.
+  const d = new Date();
+  const dow = d.getDay(); // 0=Sun ... 3=Wed ... 6=Sat
+  const diff = (dow - 3 + 7) % 7; // days to subtract to land on Wednesday
+  d.setDate(d.getDate() - diff);
   const y = d.getFullYear();
   const m = String(d.getMonth()+1).padStart(2,'0');
   const day = String(d.getDate()).padStart(2,'0');
