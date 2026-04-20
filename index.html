@@ -323,6 +323,19 @@ let currentView = null;
 let currentGroupId = null;
 let leadersView = null; // null | 'attendance' | 'manage'
 let currentDate = mostRecentWednesdayIso(); // defaults to today if Wed, else most recent Wed
+let deferredInstallPrompt = null;
+let installedApp = window.matchMedia('(display-mode: standalone)').matches ||
+                   window.navigator.standalone === true;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+});
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  installedApp = true;
+  showToast('App installed');
+});
 
 function showToast(msg, ms=2000) {
   const t = document.getElementById('toast');
@@ -440,9 +453,8 @@ async function renderGroupPicker(mode) {
   html += '</div>';
   html += `<div class="group-card leaders-card" id="leadersCard">
       <div style="display:flex;align-items:center;gap:14px">
-        <div class="count" style="margin:0">${leaders.length}</div>
+        <div class="count" style="margin:0">Leaders</div>
         <div>
-          <h3 style="margin:0">Leaders</h3>
           <p style="margin:0">${leaders.length === 1 ? '1 leader' : leaders.length + ' leaders'} — tap to take attendance</p>
         </div>
       </div>
@@ -494,7 +506,7 @@ async function renderAttendanceForGroup(groupId) {
     <input type="date" id="serviceDate" value="${dateStr}" style="padding:6px;border:1px solid var(--border);border-radius:6px;font-size:14px">
     ${isPast ? `<span class="badge" style="background:#fef3c7;color:#92400e">Editing ${formatDate(dateStr)}</span>` : `<strong>${formatDate(dateStr)}</strong>`}
     <span id="presentCount" class="badge ok" style="margin-left:auto">${presentIds.size} / ${students.length}</span>
-    <div style="flex-basis:100%;color:var(--muted);font-size:13px">Tap student photos to mark present.</div>
+    <div style="flex-basis:100%;color:var(--muted);font-size:13px">Tap to mark present · Long-press to edit student</div>
   </div>`;
   html += '<div class="student-grid">';
   for (const s of students) {
@@ -511,12 +523,43 @@ async function renderAttendanceForGroup(groupId) {
   return html;
 }
 
+// Long-press helper: fires onLong after `ms` of press, and suppresses the following click.
+function addLongPress(el, onLong, ms = 550) {
+  let timer = null;
+  let fired = false;
+  const start = (e) => {
+    fired = false;
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      fired = true;
+      // haptic buzz on supporting devices
+      if (navigator.vibrate) navigator.vibrate(30);
+      onLong(e);
+    }, ms);
+  };
+  const cancel = () => { clearTimeout(timer); timer = null; };
+  el.addEventListener('touchstart', start, { passive: true });
+  el.addEventListener('touchend', cancel);
+  el.addEventListener('touchmove', cancel);
+  el.addEventListener('touchcancel', cancel);
+  el.addEventListener('mousedown', start);
+  el.addEventListener('mouseup', cancel);
+  el.addEventListener('mouseleave', cancel);
+  // block the ghost click after long-press so attendance isn't toggled
+  el.addEventListener('click', (e) => {
+    if (fired) { e.preventDefault(); e.stopPropagation(); fired = false; }
+  }, true);
+  // block contextmenu (right-click / iOS press-hold menu)
+  el.addEventListener('contextmenu', (e) => e.preventDefault());
+}
+
 function attachAttendanceHandlers() {
   const dateInput = document.getElementById('serviceDate');
   if (dateInput) dateInput.addEventListener('change', e => {
     if (e.target.value) { currentDate = e.target.value; render(); }
   });
   document.querySelectorAll('.student-tile').forEach(tile => {
+    addLongPress(tile, () => openStudentForm(tile.dataset.sid));
     tile.addEventListener('click', async () => {
       const sid = tile.dataset.sid;
       const dateStr = currentDate;
@@ -928,7 +971,7 @@ async function renderLeaderAttendance() {
   html += `<div class="date-header" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <input type="date" id="serviceDate" value="${dateStr}" style="padding:6px;border:1px solid var(--border);border-radius:6px;font-size:14px">
     ${isPast ? `<span class="badge" style="background:#fef3c7;color:#92400e">Editing ${formatDate(dateStr)}</span>` : `<strong>${formatDate(dateStr)}</strong>`}
-    <div style="flex-basis:100%;color:var(--muted);font-size:13px">Tap leader photos to mark present.</div>
+    <div style="flex-basis:100%;color:var(--muted);font-size:13px">Tap to mark present · Long-press to edit leader</div>
   </div>`;
   if (leaders.length === 0) {
     html += `<div class="empty">No leaders yet. Tap <b>+ Add Leader</b> to add one.</div>`;
@@ -962,6 +1005,7 @@ function attachLeaderAttendanceHandlers() {
     if (e.target.value) { currentDate = e.target.value; render(); }
   });
   document.querySelectorAll('.student-tile[data-lid]').forEach(tile => {
+    addLongPress(tile, () => openLeaderForm(tile.dataset.lid));
     tile.addEventListener('click', async () => {
       const lid = tile.dataset.lid;
       const dateStr = currentDate;
@@ -1394,6 +1438,9 @@ async function renderSettings() {
       <div>Leader attendance records: <b>${leaderAttendance.length}</b></div>
     </div>
 
+    <h3 style="margin-top:24px">Install App</h3>
+    <div id="installSection"></div>
+
     <h3 style="margin-top:24px">School Year</h3>
     <div class="field">
       <label>Set current school year</label>
@@ -1415,11 +1462,6 @@ async function renderSettings() {
     </div>
     <input type="file" id="restoreFile" accept="application/json" style="display:none">
 
-    <h3 style="margin-top:24px;color:var(--danger)">Danger Zone</h3>
-    <button class="danger" id="wipeAttBtn">Clear All Attendance (keep students)</button>
-    <div style="height:8px"></div>
-    <button class="danger" id="wipeAllBtn">Erase Everything</button>
-
     <h3 style="margin-top:24px">Account</h3>
     <p style="color:var(--muted);font-size:14px;margin-top:0">
       Signed in as: <b>${fbAuth.currentUser?.email || 'unknown'}</b><br>
@@ -1428,13 +1470,66 @@ async function renderSettings() {
     <button class="secondary" id="signOutBtn">Sign Out</button>
 
     <div style="text-align:center;margin-top:32px;color:var(--muted);font-size:12px">
-      Bethel Wednesday Night Attendance • v0.9 (First-name sort)<br>
+      Bethel Wednesday Night Attendance • v1.3<br>
       Data stored in shared cloud database.
     </div>
   `;
 }
 
+function renderInstallSection() {
+  const el = document.getElementById('installSection');
+  if (!el) return;
+  if (installedApp) {
+    el.innerHTML = `<div style="color:var(--muted);font-size:14px">
+      ✓ App is installed on this device.
+    </div>`;
+    return;
+  }
+  const ua = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+  if (isIOS) {
+    el.innerHTML = `
+      <div style="color:var(--muted);font-size:14px;margin-bottom:8px">
+        To install on iPhone/iPad:
+      </div>
+      <ol style="color:var(--text);font-size:14px;padding-left:20px;margin-top:0">
+        <li>Make sure you're in <b>Safari</b> (not Chrome)</li>
+        <li>Tap the <b>Share</b> button <span style="font-size:18px">⬆</span> at the bottom</li>
+        <li>Scroll down and tap <b>Add to Home Screen</b></li>
+        <li>Tap <b>Add</b></li>
+      </ol>`;
+    return;
+  }
+  if (deferredInstallPrompt) {
+    el.innerHTML = `<button class="primary" id="doInstallBtn" style="width:100%">📱 Install App</button>
+      <div style="color:var(--muted);font-size:13px;margin-top:6px">
+        Adds an icon to your home screen and opens full-screen.
+      </div>`;
+    document.getElementById('doInstallBtn').addEventListener('click', async () => {
+      if (!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      const { outcome } = await deferredInstallPrompt.userChoice;
+      if (outcome === 'accepted') {
+        installedApp = true;
+        deferredInstallPrompt = null;
+        renderInstallSection();
+      }
+    });
+    return;
+  }
+  // No deferred prompt (already dismissed, or browser doesn't support it)
+  el.innerHTML = `
+    <div style="color:var(--muted);font-size:14px;margin-bottom:8px">
+      To install on this device:
+    </div>
+    <ul style="color:var(--text);font-size:14px;padding-left:20px;margin-top:0">
+      <li><b>Android Chrome:</b> tap ⋮ menu → <b>Install app</b> or <b>Add to Home screen</b></li>
+      <li><b>Desktop Chrome/Edge:</b> click the install icon <span style="font-family:monospace">⊕</span> in the address bar</li>
+    </ul>`;
+}
+
 function attachSettingsHandlers() {
+  renderInstallSection();
   document.getElementById('setSyBtn').addEventListener('click', async () => {
     const v = document.getElementById('syInput').value.trim();
     if (!v) return;
@@ -1448,28 +1543,11 @@ function attachSettingsHandlers() {
     document.getElementById('restoreFile').click();
   });
   document.getElementById('restoreFile').addEventListener('change', restoreFromFile);
-  document.getElementById('wipeAttBtn').addEventListener('click', async () => {
-    if (!confirm('Delete ALL attendance records? Students will be kept. This cannot be undone.')) return;
-    const all = await dbAll('attendance');
-    for (const a of all) await dbDelete('attendance', a.id);
-    showToast('Attendance cleared');
-    render();
-  });
   const signOutBtn = document.getElementById('signOutBtn');
   if (signOutBtn) signOutBtn.addEventListener('click', async () => {
     if (!confirm('Sign out? You will need to re-enter the passphrase to use the app.')) return;
     await signOut(fbAuth);
     // Auth state change listener will show the overlay
-  });
-  document.getElementById('wipeAllBtn').addEventListener('click', async () => {
-    if (!confirm('Erase ALL data (students AND attendance)? This cannot be undone.')) return;
-    if (!confirm('Really erase everything? Last chance.')) return;
-    const studs = await dbAll('students');
-    for (const s of studs) await dbDelete('students', s.id);
-    const att = await dbAll('attendance');
-    for (const a of att) await dbDelete('attendance', a.id);
-    showToast('All data erased');
-    render();
   });
 }
 
