@@ -546,8 +546,8 @@ function attachAttendanceHandlers() {
 
 async function renderStudentsList() {
   const students = (await dbAll('students'))
-    .sort((a,b) => (a.lastName||'').localeCompare(b.lastName||'') ||
-                   (a.firstName||'').localeCompare(b.firstName||''));
+    .sort((a,b) => (a.firstName||'').localeCompare(b.firstName||'') ||
+                   (a.lastName||'').localeCompare(b.lastName||''));
   let html = `<div class="row" style="margin-bottom:12px">
     <input type="text" id="searchBox" placeholder="Search..." style="flex:1;padding:10px;border:1px solid var(--border);border-radius:6px;font-size:15px" />
     <button class="primary" id="addStudentBtn">+ Add</button>
@@ -568,7 +568,7 @@ async function renderStudentsList() {
           ? `<img src="${s.photoDataUrl}">`
           : `<div class="ph">${initials(s)}</div>`}
         <div class="info">
-          <div class="name">${escapeHtml(s.lastName || '')}, ${escapeHtml(s.firstName || '')}</div>
+          <div class="name">${escapeHtml(s.firstName || '')} ${escapeHtml(s.lastName || '')}</div>
           <div class="meta">Grade ${escapeHtml(s.grade || '?')} • ${group ? escapeHtml(group.name) : 'No group'}${s.active === false ? ' • ARCHIVED' : ''}</div>
         </div>
       </div>`;
@@ -987,8 +987,8 @@ function attachLeaderAttendanceHandlers() {
 
 async function renderLeadersList() {
   const leaders = (await dbAll('leaders'))
-    .sort((a,b) => (a.lastName||'').localeCompare(b.lastName||'') ||
-                   (a.firstName||'').localeCompare(b.firstName||''));
+    .sort((a,b) => (a.firstName||'').localeCompare(b.firstName||'') ||
+                   (a.lastName||'').localeCompare(b.lastName||''));
   let html = `<div class="row" style="margin-bottom:12px">
     <input type="text" id="leaderSearchBox" placeholder="Search..." style="flex:1;padding:10px;border:1px solid var(--border);border-radius:6px;font-size:15px" />
     <button class="primary" id="addLeaderBtn2">+ Add</button>
@@ -1011,7 +1011,7 @@ async function renderLeadersList() {
           ? `<img src="${l.photoDataUrl}">`
           : `<div class="ph">${initials(l)}</div>`}
         <div class="info">
-          <div class="name">${escapeHtml(l.lastName || '')}, ${escapeHtml(l.firstName || '')}</div>
+          <div class="name">${escapeHtml(l.firstName || '')} ${escapeHtml(l.lastName || '')}</div>
           <div class="meta">${escapeHtml(groupNames)}${l.active === false ? ' • ARCHIVED' : ''}</div>
         </div>
       </div>`;
@@ -1292,12 +1292,13 @@ async function runReport(kind) {
     const rows = students.filter(s => s.active !== false).map(s => {
       const present = syPresent.filter(a => a.studentId === s.id).length;
       return { s, present };
-    }).sort((a,b) => (a.s.lastName||'').localeCompare(b.s.lastName||''));
+    }).sort((a,b) => (a.s.firstName||'').localeCompare(b.s.firstName||'') ||
+                     (a.s.lastName||'').localeCompare(b.s.lastName||''));
     let html = `<table class="report"><thead><tr><th>Student</th><th>Grade</th><th>Present</th><th>Rate</th></tr></thead><tbody>`;
     for (const r of rows) {
       const pct = total ? Math.round(100 * r.present / total) : 0;
       const badge = pct >= 75 ? 'ok' : pct >= 50 ? 'warn' : '';
-      html += `<tr><td>${escapeHtml(r.s.lastName)}, ${escapeHtml(r.s.firstName)}</td>
+      html += `<tr><td>${escapeHtml(r.s.firstName)} ${escapeHtml(r.s.lastName)}</td>
         <td>${escapeHtml(r.s.grade||'')}</td>
         <td>${r.present} / ${total}</td>
         <td><span class="badge ${badge}">${pct}%</span></td></tr>`;
@@ -1344,7 +1345,8 @@ async function exportCsv() {
   const attendance = (await dbAll('attendance')).filter(a => a.schoolYear === sy && a.present);
   const dates = [...new Set(attendance.map(a => a.date))].sort();
   const active = students.filter(s => s.active !== false)
-    .sort((a,b) => (a.lastName||'').localeCompare(b.lastName||''));
+    .sort((a,b) => (a.firstName||'').localeCompare(b.firstName||'') ||
+                   (a.lastName||'').localeCompare(b.lastName||''));
   const rows = [['Last Name','First Name','Grade','Group', ...dates.map(formatDate), 'Total', 'Rate']];
   for (const s of active) {
     const row = [s.lastName, s.firstName, s.grade, GROUP_DEFS.find(g => g.id === s.group)?.name || ''];
@@ -1426,7 +1428,7 @@ async function renderSettings() {
     <button class="secondary" id="signOutBtn">Sign Out</button>
 
     <div style="text-align:center;margin-top:32px;color:var(--muted);font-size:12px">
-      Bethel Wednesday Night Attendance • v0.8 (Dates + Bulk Leaders)<br>
+      Bethel Wednesday Night Attendance • v0.9 (First-name sort)<br>
       Data stored in shared cloud database.
     </div>
   `;
