@@ -1441,6 +1441,10 @@ async function renderSettings() {
     <h3 style="margin-top:24px">Install App</h3>
     <div id="installSection"></div>
 
+    <h3 style="margin-top:24px">Updates</h3>
+    <button class="secondary" id="checkUpdateBtn" style="width:100%">🔄 Check for Updates</button>
+    <div id="updateStatus" style="color:var(--muted);font-size:13px;margin-top:6px"></div>
+
     <h3 style="margin-top:24px">School Year</h3>
     <div class="field">
       <label>Set current school year</label>
@@ -1470,7 +1474,7 @@ async function renderSettings() {
     <button class="secondary" id="signOutBtn">Sign Out</button>
 
     <div style="text-align:center;margin-top:32px;color:var(--muted);font-size:12px">
-      Bethel Wednesday Night Attendance • v1.3<br>
+      Bethel Wednesday Night Attendance • v1.4 (Check for Updates)<br>
       Data stored in shared cloud database.
     </div>
   `;
@@ -1528,8 +1532,39 @@ function renderInstallSection() {
     </ul>`;
 }
 
+async function checkForUpdates() {
+  const status = document.getElementById('updateStatus');
+  const btn = document.getElementById('checkUpdateBtn');
+  if (btn) btn.disabled = true;
+  if (status) status.textContent = 'Checking…';
+  try {
+    // Cache-bust the HTML so the browser re-fetches the latest version
+    const htmlResp = await fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store' });
+    const htmlOk = htmlResp && htmlResp.ok;
+    // Ask the service worker to check for a new sw.js
+    let swUpdated = false;
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg) {
+        await reg.update();
+        if (reg.waiting) {
+          swUpdated = true;
+          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+      }
+    }
+    if (status) status.textContent = 'Reloading with latest version…';
+    setTimeout(() => location.reload(), 400);
+  } catch (err) {
+    if (status) status.textContent = 'Update check failed: ' + err.message;
+    if (btn) btn.disabled = false;
+  }
+}
+
 function attachSettingsHandlers() {
   renderInstallSection();
+  const updateBtn = document.getElementById('checkUpdateBtn');
+  if (updateBtn) updateBtn.addEventListener('click', checkForUpdates);
   document.getElementById('setSyBtn').addEventListener('click', async () => {
     const v = document.getElementById('syInput').value.trim();
     if (!v) return;
